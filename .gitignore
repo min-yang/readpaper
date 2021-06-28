@@ -11,6 +11,4 @@ data
 *.DS_Store
 twitter.txt
 
-__pycache__/
-.ipynb_checkpoints/
-saved/
+readpaper/saved/
