@@ -1,0 +1,30 @@
+<html>
+   <head>
+      <title>论文列表</title>
+      <link rel='stylesheet' href='{{ static_url("paper_list.css") }}' type='text/css'>
+   </head>
+   <body>
+    <div class='container'>
+        <header>
+            {{ title }}
+        </header>
+        <article>
+        {% for paper in papers %}
+            <h2>{{ paper['title'] }}</h2>
+            <p style='font-size:1.2em'>{{ paper['summary'] }}</p>
+            <br>
+            <hr>
+        {% end %}
+        </article>
+          
+        <aside>
+        <h2>主题</h2>
+        <div class='mini_container'>
+        {% for i in range(100) %}
+            <a href='/topic/{{i}}'>{{i}}</a>
+        {% end %}
+        </div>
+        </aside>
+    </div>
+   </body>
+ </html>
