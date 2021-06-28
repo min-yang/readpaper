@@ -1,7 +1,7 @@
 <html>
    <head>
       <title>论文列表</title>
-      <link rel='stylesheet' href='{{ static_url("paper_list.css") }}' type='text/css'>
+      <link rel='stylesheet' href='{{ static_url("paper.css") }}' type='text/css'>
    </head>
    <body>
     <div class='container'>
@@ -9,12 +9,22 @@
             {{ title }}
         </header>
         <article>
-        {% for paper in papers %}
+        {% for paper in papers[:10] %}
             <h2>{{ paper['title'] }}</h2>
             <p style='font-size:1.2em'>{{ paper['summary'] }}</p>
             <br>
             <hr>
         {% end %}
+        {% if page %}
+            <div class='center'>
+            <a href="?page=1">首页</a>
+            <a href="?page={{page-1}}">上一页</a>
+            {{page}}
+            {% if len(papers)==11 %}
+                <a href="?page={{page+1}}">下一页</a>
+            {% end if %}
+            </div>
+        {% end if %}
         </article>
           
         <aside>

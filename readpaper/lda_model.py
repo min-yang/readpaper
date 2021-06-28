@@ -8,16 +8,17 @@ from gensim.corpora import Dictionary
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem.wordnet import WordNetLemmatizer
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
 class Corpus:
-    def __init__(self, collection):
+    def __init__(self, collection, filter_dict):
         self.collection = collection
+        self.filter_dict = filter_dict
         self.tokenizer = RegexpTokenizer(r'\w+')
         self.lemmatizer = WordNetLemmatizer()
 
     def __iter__(self):
-        docs = self.collection.find()
+        docs = self.collection.find(self.filter_dict)
         for i, doc in enumerate(docs):
             doc = doc['summary'].lower().replace('_', '')
             doc = self.tokenizer.tokenize(doc)         
@@ -47,11 +48,11 @@ class BOW:
         for doc in self.data_gen:
             yield self.dictionary.doc2bow(doc)
             
-def result_write(collection, bigram, dictionary, model):
+def result_write(collection, filter_dict, bigram, dictionary, model):
     tokenizer = RegexpTokenizer(r'\w+')
     lemmatizer = WordNetLemmatizer()
         
-    docs = collection.find()
+    docs = collection.find(filter_dict)
     result = {}
     for doc in docs:
         rawid = doc['_id']
@@ -94,7 +95,10 @@ class Inference:
 if __name__ == '__main__':
     client = MongoClient()
     
-    corpus = Corpus(client.paper.cs_paper_abs)
+    collection = client.paper.cs_paper_abs
+    filter_dict = {}
+    
+    corpus = Corpus(date_gen)
     bigram = Phrases(corpus, min_count=20)
     bigram.save('saved/bigram.bin')
     
@@ -106,10 +110,10 @@ if __name__ == '__main__':
     my_corpus = BOW(bigram_corpus, dictionary)
     
     # Set training parameters.
-    num_topics = 100
+    num_topics = 10
     chunksize = 2000
     passes = 20
-    iterations = 50
+    iterations = 400
     eval_every = None  # Don't evaluate model perplexity, takes too much time.
 
     # Make a index to word dictionary.
@@ -129,6 +133,6 @@ if __name__ == '__main__':
     )
     model.save('saved/ldamodel.bin')
     
-    result_write(client.paper.cs_paper_abs, bigram, dictionary, model)
+    result_write(collection, filter_dict, bigram, dictionary, model)
     
     

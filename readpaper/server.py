@@ -13,25 +13,28 @@ class MainHandler(tornado.web.RequestHandler):
         for doc in self.application.mongo_client.paper.cs_paper_abs.find(skip=num_skip, limit=10):
             papers.append(doc)
             
-        self.render('paper.html', papers=papers, title='论文列表')
+        self.render('paper.html', papers=papers, title='论文列表', page=None)
 
 class TopicHandler(tornado.web.RequestHandler):
     def get(self, topic_index):
         filter = {'topic_index': int(topic_index)}
-
+        
+        page = int(self.get_query_argument('page', 1))
         papers = []
-        num_skip = random.randint(0, self.application.mongo_client.paper.cs_paper_abs.estimated_document_count()-1)
+        num_skip = (page - 1) * 10
+        if num_skip < 0:
+            raise tornado.web.HTTPError(404)
+            
+        for doc in self.application.mongo_client.paper.cs_paper_abs.find(filter, skip=num_skip, limit=11):
+            papers.append(doc)
+            
+        if not papers:
+            raise tornado.web.HTTPError(404)
+            
+        self.render('paper.html', papers=papers, title='%s 主题论文列表' %topic_index, page=page)
 
-        for doc in self.application.mongo_client.paper.cs_paper_abs.find(filter, skip=num_skip):
-            papers.append(doc)
-            if len(papers) == 10:
-                break
-        for doc in self.application.mongo_client.paper.cs_paper_abs.find(filter, limit=num_skip):
-            if len(papers) == 10:
-                break
-            papers.append(doc)
-             
-        self.render('paper.html', papers=papers, title='%s 主题论文列表' %topic_index)
+class PaperHandler(tornado.web.RequestHandler):
+    pass
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -39,6 +42,7 @@ class Application(tornado.web.Application):
         handlers = [
             (r"/", MainHandler),
             (r"/topic/([0-9]+)", TopicHandler),
+            (r"/paper/([0-9.]+)", PaperHandler),
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
