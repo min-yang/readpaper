@@ -1,17 +1,21 @@
-<html>
-   <head>
-      <title>论文列表</title>
-      <link rel='stylesheet' href='{{ static_url("paper.css") }}' type='text/css'>
-   </head>
-   <body>
+{% extends "base.html" %}
+
+{% block title %}论文列表{% end %}
+
+{% block body %}
     <div class='container'>
         <header>
             {{ title }}
         </header>
         <article>
         {% for paper in papers[:10] %}
-            <h2>{{ paper['title'] }}</h2>
-            <p style='font-size:1.2em'>{{ paper['summary'] }}</p>
+            <h2>
+                <a href='/paper/{{paper['_id']}}' class='clean_link'>
+                {{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}
+                </a>
+            </h2>
+            <p class='time'>{{ paper['updated'] }}</p>
+            <p style='font-size:1.2em'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
             <br>
             <hr>
         {% end %}
@@ -36,5 +40,4 @@
         </div>
         </aside>
     </div>
-   </body>
- </html>
+{% end %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}论文正文{% end %}
+
+{% block body %}
+    <h1 class='center'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}</h1>
+    <h4 class='center'>
+    {% for author in paper['authors'] %}
+        {{ author['name'] }} &nbsp;
+    {% end for %}
+    </h4>
+    <div class='main_body'>
+        <p class='mid_size text'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
+        <p>相关链接：
+        {% for link in paper['links'] %}
+            <a href='{{link['href']}}'> {{ link['type'] }}</a>&nbsp;
+        {% end for %}
+        </p>
+        <p>标签：
+        {% for tag in paper['tags'] %}
+            {{ tag['term'] }}&nbsp;
+        {% end for %}
+        </p>
+        <p class='time'>发表时间：{{ paper['published'] }}</p>
+        <p class='time'>更新时间：{{ paper['updated'] }}</p>
+        <hr>
+        <p>相似文献：
+        <ol class='refs mid_size'>
+        {% for sim in sim_title %}
+            <li><a href='/paper/{{sim[0]}}'>{{ sim[1] }}</a></li>
+        {% end for %}
+        </ol>
+        </p>
+    </div>
+{% end %}

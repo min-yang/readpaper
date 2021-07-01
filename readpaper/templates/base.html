@@ -1,0 +1,14 @@
+<html>
+   <head>
+      <title>{% block title %}默认标题{% end %}</title>
+      <link rel='stylesheet' href='{{ static_url("paper.css") }}' type='text/css'>
+      <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+      <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+   </head>
+   
+   {% import re %}
+   
+   <body>
+   {% block body %}默认正文{% end %}
+   </body>
+</html>
