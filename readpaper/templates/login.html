@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block search %}
+{% end %}
+
+{% block body %}
+    <form action='{{ request.uri }}' method='POST'>
+        用户名：<input name='username' type='text'><br>
+        密码：<input name='password' type='password'><br>
+        {% module xsrf_form_html() %}
+        <input type='submit' value='登录'>
+    </form>
+    {% if error %}
+        <span style='color:red'>错误：{{ error }}</span>
+    {% end %}
+{% end %}

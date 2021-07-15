@@ -1,43 +1,11 @@
-{% extends "base.html" %}
+{% extends "index_base.html" %}
 
-{% block title %}论文列表{% end %}
-
-{% block body %}
-    <div class='container'>
-        <header>
-            {{ title }}
-        </header>
-        <article>
-        {% for paper in papers[:10] %}
-            <h2>
-                <a href='/paper/{{paper['_id']}}' class='clean_link'>
-                {{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}
-                </a>
-            </h2>
-            <p class='time'>{{ paper['updated'] }}</p>
-            <p style='font-size:1.2em'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
-            <br>
-            <hr>
-        {% end %}
-        {% if page %}
-            <div class='center'>
-            <a href="?page=1">首页</a>
-            <a href="?page={{page-1}}">上一页</a>
-            {{page}}
-            {% if len(papers)==11 %}
-                <a href="?page={{page+1}}">下一页</a>
-            {% end if %}
-            </div>
-        {% end if %}
-        </article>
-          
-        <aside>
-        <h2>主题</h2>
-        <div class='mini_container'>
-        {% for i in range(100) %}
-            <a href='/topic/{{i}}'>{{i}}</a>
-        {% end %}
-        </div>
-        </aside>
-    </div>
+{% block custom_style %}
+    <style>
+    .container article {
+        grid-column: 1 / 3;
+        grid-row: 2;
+        padding: 0em 9em 0em 9em;
+    }
+    </style>
 {% end %}

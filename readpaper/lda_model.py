@@ -98,7 +98,7 @@ if __name__ == '__main__':
     collection = client.paper.cs_paper_abs
     filter_dict = {}
     
-    corpus = Corpus(date_gen)
+    corpus = Corpus(collection, filter_dict)
     bigram = Phrases(corpus, min_count=20)
     bigram.save('saved/bigram.bin')
     

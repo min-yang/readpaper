@@ -1,14 +1,45 @@
 <html>
    <head>
-      <title>{% block title %}默认标题{% end %}</title>
+      <title>{% block title %}智能信息平台{% end %}</title>
       <link rel='stylesheet' href='{{ static_url("paper.css") }}' type='text/css'>
       <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
       <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+      {% block custom_style %}{% end %}
    </head>
    
    {% import re %}
    
    <body>
-   {% block body %}默认正文{% end %}
+    <div id='body'>
+        <div id='header'>
+            <div style='float:right'>
+                {% if current_user %}
+                    {{ current_user }}<a href='/auth/logout?next={{ url_escape(request.uri) }}'>{{ _("登出") }}</a>
+                {% else %}
+                    {% raw _('<a href="%(url)s">登入</a>') %{'url': '/auth/login?next=' + url_escape(request.uri)} %}
+                    <a href='/auth/create?next={{ url_escape(request.uri) }}'>注册</a>
+                {% end %}
+            </div>
+            <h1><a href='/'>智能信息平台</a></h1>
+        </div>
+        <div class='topnav'>
+            <a {% if request.path.startswith('/paper/') %}class='active'{% end %}href='/paper/index'>论文库</a>
+            <a {% if request.path.startswith('/topic/') %}class='active'{% end %}href='/topic/0'>主题模型</a>
+        </div>
+        <br>
+        {%block search %}
+            <div>
+            <form action='/search' method='GET'>
+            <input name='keyword' type='text' class='search_ipt' value='{{ request.query_arguments.get('keyword', [b''])[0].decode() }}'>
+            <input type='submit' value='搜索' class='search_btn'>
+            </form>
+            </div>
+        {% end %}
+        <div id='content'> 
+            {% block body %}
+                内容待定
+            {% end %}
+        </div>
+    </div>
    </body>
 </html>

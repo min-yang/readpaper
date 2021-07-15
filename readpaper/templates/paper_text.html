@@ -3,14 +3,38 @@
 {% block title %}论文正文{% end %}
 
 {% block body %}
+    <p style='color:red;text-align:center;font-size:1.3em' id='rating_error'><p>
     <h1 class='center'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}</h1>
     <h4 class='center'>
     {% for author in paper['authors'] %}
         {{ author['name'] }} &nbsp;
     {% end for %}
     </h4>
+
+
+
     <div class='main_body'>
+        <div class='text_rating'>
+            <p style='text-align:left;margin:0;font-size:5px'>大众评分</p>
+            <p style='text-align:center;margin:0;font-size:2em;color:red'><strong>{{ paper.get('avg_score', '无') }}</strong></p>
+            <hr>
+            <p style='text-align:left;margin:0;font-size:5px'>你的评分</p>
+            <form>
+                {% module xsrf_form_html() %}
+              <fieldset>
+                <span class="star-cb-group">
+                  <input type="radio" id="rating-5" name="rating" value="5" {% if my_score == 5 %}checked{% end %}/><label for="rating-5">5</label>
+                  <input type="radio" id="rating-4" name="rating" value="4" {% if my_score == 4 %}checked{% end %}/><label for="rating-4">4</label>
+                  <input type="radio" id="rating-3" name="rating" value="3" {% if my_score == 3 %}checked{% end %}/><label for="rating-3">3</label>
+                  <input type="radio" id="rating-2" name="rating" value="2" {% if my_score == 2 %}checked{% end %}/><label for="rating-2">2</label>
+                  <input type="radio" id="rating-1" name="rating" value="1" {% if my_score == 1 %}checked{% end %}/><label for="rating-1">1</label>
+                  <input type="radio" id="rating-0" name="rating" value="0" class="star-cb-clear" /><label for="rating-0">0</label>
+                </span>
+              </fieldset>
+            </form>
+        </div>
         <p class='mid_size text'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
+    
         <p>相关链接：
         {% for link in paper['links'] %}
             <a href='{{link['href']}}'> {{ link['type'] }}</a>&nbsp;
@@ -32,4 +56,31 @@
         </ol>
         </p>
     </div>
+
+    <script>
+        var token = document.querySelector('.text_rating input[name="_xsrf"]');
+        var rad = document.querySelectorAll('.text_rating input[type="radio"]');
+        var rating_error = document.querySelector('#rating_error');
+        
+        function ErrorHandler(e) {
+            if (e.target.status == 403) {
+                rating_error.textContent = '登录后才能进行评分';
+            }
+        }
+        
+        for (var i = 0; i < rad.length; i++) {
+            rad[i].addEventListener('change', function() {
+                var xhr = new XMLHttpRequest();
+                xhr.open('POST', '/rating', true);
+                xhr.setRequestHeader('X-XSRFToken', token.value);
+                xhr.addEventListener('loadend', ErrorHandler);
+                xhr.send(JSON.stringify({
+                    value: this.value, 
+                    user: '{{ current_user }}',
+                    item: '{{ paper['_id'] }}',
+                }));
+            });
+        }
+    </script>
+    
 {% end %}

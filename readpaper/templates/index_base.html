@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+
+{% block body %}
+    <div class='container'>
+        <article>
+        {% for i, paper in enumerate(papers[:10]) %}
+            <div class='star-ratings'>
+            <div class="star-ratings-css">
+                <div class="star-ratings-css-top" style="width:{{ paper.get('avg_score', 0) / 5 * 100 }}%">
+                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                </div>
+                <div class="star-ratings-css-bottom">
+                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                </div>
+            </div>
+            </div>
+            
+            <h2>
+                <a href='/paper/{{paper['_id']}}' class='clean_link'>
+                {{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}
+                </a>
+            </h2>
+
+            
+            <p class='time'>{{ paper['updated'] }}</p>
+            <p style='font-size:1.2em;text-align:justify'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
+            <br>
+            <hr>
+        {% end %}
+        {% if page %}
+            <div class='center'>
+            <a href="?{% if request.query %}{{ re.sub(r'page=[0-9]+', 'page=1', request.query) }}{% else %}page=1{% end %}">首页</a>
+            {% if page!=1 %}
+                <a href="?{% if request.query %}{{ re.sub(r'&?page=[0-9]+', '', request.query) + '&page=%s' %(page-1) }}{% else %}page={{ page-1 }}{% end %}">上一页</a>
+            {% end if %}
+            第&nbsp;{{ page }}&nbsp;页
+            {% if len(papers)==11 %}
+                <a href="?{% if request.query %}{{ re.sub(r'&?page=[0-9]+', '', request.query) + '&page=%s' %(page+1) }}{% else %}page={{ page+1 }}{% end %}">下一页</a>
+            {% end if %}
+            <p>
+                每页<strong class='red'>10</strong>条，共<strong class='red'>{{ total_num }}</strong>条
+            <p>
+                <form action='{{ request.uri }}' method='POST'>
+                跳到<input name='page' type='text' size=3>页
+                {% module xsrf_form_html() %}
+                <input type='submit' value='跳转'>
+                </form>
+            </p>
+            </div>
+        {% end if %}
+        </article>
+        
+        {% block aside %}{% end %}
+        
+    </div>
+    
+{% end %}
