@@ -9,4 +9,7 @@ with conn:
     conn.execute(
         'create table if not exists user_rate (user text, item text, rating num, unique (user, item))'
     )
+    conn.execute(
+        'create table if not exists user_recommend (name text primary key not null unique, rec_items text)'
+    )
 

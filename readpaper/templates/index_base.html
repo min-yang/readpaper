@@ -10,7 +10,7 @@
                 <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
                 </div>
                 <div class="star-ratings-css-bottom">
-                <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                <span>☆</span><span>☆</span><span>☆</span><span>☆</span><span>☆</span>
                 </div>
             </div>
             </div>
@@ -40,9 +40,13 @@
             <p>
                 每页<strong class='red'>10</strong>条，共<strong class='red'>{{ total_num }}</strong>条
             <p>
-                <form action='{{ request.uri }}' method='POST'>
+                <form action='{{ request.path }}' method='GET'>
                 跳到<input name='page' type='text' size=3>页
-                {% module xsrf_form_html() %}
+                {% for query in request.query.split('&') %}
+                    {% if len(query.split('='))==2 and query.split('=')[0] != 'page' %}
+                        <input name='{{ query.split('=')[0] }}' type='hidden' value='{{ query.split('=')[1] }}'>
+                    {% end %}
+                {% end %}
                 <input type='submit' value='跳转'>
                 </form>
             </p>

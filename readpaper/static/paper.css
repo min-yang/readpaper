@@ -249,7 +249,7 @@ fieldset {
 
 .star-ratings-css {
   unicode-bidi: bidi-override;
-  color: #c5c5c5;
+  color: black;
   font-size: 25px;
   height: 25px;
   width: 125px;
@@ -259,7 +259,7 @@ fieldset {
   text-shadow: 0px 1px 0 #a2a2a2;
 }
 .star-ratings-css-top {
-  color: #e7711b;
+  color: orange;
   padding: 0;
   position: absolute;
   z-index: 1;

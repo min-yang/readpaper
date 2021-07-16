@@ -1,6 +1,7 @@
 import os
 import re
 import json
+import time
 import random
 import sqlite3
 
@@ -11,14 +12,24 @@ import tornado.options
 import pymongo
 from pymongo import MongoClient
 
+from rec_sys import get_recommend_result
+
+UPDATE_DELAY = 60 * 5
+
 class BaseHandler(tornado.web.RequestHandler):
+    def custom_find(self, collection, *args, **kwargs):
+        my_params = {'projection': ['_id', 'title', 'summary', 'updated', 'avg_score']}
+        my_params.update(kwargs)
+        return collection.find(*args, **my_params)
+        
     def find_sort_by_updated(self, filter, page):
         papers = []
         num_skip = (page - 1) * 10
         if num_skip < 0:
             raise tornado.web.HTTPError(400)
             
-        for doc in self.application.mongo_client.paper.cs_paper_abs.find(
+        for doc in self.custom_find(
+            self.application.mongo_client.paper.cs_paper_abs,
             filter, 
             skip=num_skip, 
             limit=11, 
@@ -179,7 +190,7 @@ class SearchHandler(BaseHandler):
         
 class RatingHandler(BaseHandler):
     @tornado.web.authenticated
-    def post(self):
+    async def post(self):
         data = json.loads(self.request.body)
         self.query('insert or replace into user_rate values (?, ?, ?)', (
             data['user'], 
@@ -191,12 +202,31 @@ class RatingHandler(BaseHandler):
         item_scores = [ele['rating'] for ele in item_scores]
         avg_score = round(sum(item_scores) / len(item_scores), 1)
         self.application.mongo_client.paper.cs_paper_abs.find_one_and_update({'_id': data['item']}, {'$set': {'avg_score': avg_score}})
+        if time.time() - self.application.last_update > UPDATE_DELAY:
+            await tornado.ioloop.IOLoop.current().run_in_executor(None, get_recommend_result)
+            self.application.last_update = time.time()
+        
+class RecommenderHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        page = int(self.get_query_argument('page', 1))
+        
+        rec_items = eval(self.query(
+            'select rec_items from user_recommend where name=?', (self.current_user.decode(), )
+        )[0]['rec_items'])
+        
+        papers = []
+        for item in rec_items[(page-1)*10:(page*10)+1]:
+            papers.append(self.application.mongo_client.paper.cs_paper_abs.find_one({'_id': item}))
+        
+        self.render('paper.html', papers=papers, page=page, total_num=len(rec_items))
         
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
         self.user_db.row_factory = sqlite3.Row
         self.mongo_client = MongoClient()
+        self.last_update = 0
         handlers = [
             (r'/', HomeHandler),
             (r"/paper/index", PaperIndexHandler),
@@ -207,6 +237,7 @@ class Application(tornado.web.Application):
             (r'/auth/create', UserCreateHandler),
             (r'/auth/logout', LogoutHandler),
             (r'/rating', RatingHandler),
+            (r'/recommender', RecommenderHandler),
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),

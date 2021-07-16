@@ -25,6 +25,7 @@
         <div class='topnav'>
             <a {% if request.path.startswith('/paper/') %}class='active'{% end %}href='/paper/index'>论文库</a>
             <a {% if request.path.startswith('/topic/') %}class='active'{% end %}href='/topic/0'>主题模型</a>
+            <a {% if request.path.startswith('/recommender') %}class='active'{% end %}href='/recommender'>推荐系统</a>
         </div>
         <br>
         {%block search %}
