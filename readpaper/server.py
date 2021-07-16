@@ -72,9 +72,6 @@ class PaperIndexHandler(BaseHandler):
         n_papers = self.application.mongo_client.paper.cs_paper_abs.count_documents({})
         self.render('paper.html', papers=papers, page=page, total_num=n_papers)
 
-    def post(self):
-        self.redirect('%s?page=%s' %(self.request.path, self.get_argument('page')))
-
 class TopicHandler(BaseHandler):
     def get(self, topic_index):
         filter = {'topic_index': int(topic_index)}
@@ -82,9 +79,6 @@ class TopicHandler(BaseHandler):
         papers = self.find_sort_by_updated(filter, page)
         n_papers = self.application.mongo_client.paper.cs_paper_abs.count_documents(filter)
         self.render('topic.html', papers=papers, page=page, total_num=n_papers)
-
-    def post(self, topic_index):
-        self.redirect('%s?page=%s' %(self.request.path, self.get_argument('page')))
         
 class PaperHandler(BaseHandler):
     def get(self, paper_id):
@@ -168,7 +162,6 @@ class LogoutHandler(BaseHandler):
 class SearchHandler(BaseHandler):
     def get(self):
         keyword = self.get_argument('keyword')
-        
         no_word_list = re.findall(r'\W+$', keyword)
         if no_word_list:
             keyword = keyword[:-(len(no_word_list[-1]))]
@@ -182,11 +175,6 @@ class SearchHandler(BaseHandler):
         papers = self.find_sort_by_updated(filter, page)
         n_papers = self.application.mongo_client.paper.cs_paper_abs.count_documents(filter)
         self.render('paper.html', papers=papers, page=page, total_num=n_papers)
-        
-    def post(self):
-        self.redirect('%s?keyword=%s&page=%s' %(
-            self.request.path, self.get_argument('keyword'), self.get_argument('page')
-        ))
         
 class RatingHandler(BaseHandler):
     @tornado.web.authenticated
