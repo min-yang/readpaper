@@ -32,7 +32,6 @@ def result_write(corpus, collection):
     model = gensim.models.doc2vec.Doc2Vec.load('saved/doc2vec.bin')
     for doc in corpus:
         doc_id = doc[1][0]
-        print(doc_id)
         words = doc[0]
         
         inferred_vector = model.infer_vector(words)

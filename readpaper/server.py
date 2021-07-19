@@ -87,7 +87,7 @@ class PaperHandler(BaseHandler):
             raise tornado.web.HTTPError(404)
             
         sim_title = []
-        sim_ids = paper['similar_paper']
+        sim_ids = paper.get('similar_paper', [])
         for sim_id in sim_ids:
             title = self.application.mongo_client.paper.cs_paper_abs.find_one({'_id': sim_id})['title']
             sim_title.append((sim_id, title))

@@ -6,12 +6,9 @@
     <p style='color:red;text-align:center;font-size:1.3em' id='rating_error'><p>
     <h1 class='center'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}</h1>
     <h4 class='center'>
-    {% for author in paper['authors'] %}
-        {{ author['name'] }} &nbsp;
-    {% end for %}
+    {% set author_names = [ele['name'] for ele in paper['authors']] %}
+    {{ ', '.join(author_names) }}
     </h4>
-
-
 
     <div class='main_body'>
         <div class='text_rating'>
