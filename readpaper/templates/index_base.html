@@ -2,6 +2,9 @@
 
 {% block body %}
     <div class='container'>
+        {% if request.query_arguments.get('keyword') %}
+            <div style='color:green;font-size:18px;'>"{{ request.query_arguments['keyword'][0].decode() }}"的搜索结果</div>
+        {% end %}
         <article>
         {% for i, paper in enumerate(papers[:10]) %}
             <div class='star-ratings'>

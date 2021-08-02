@@ -4,6 +4,7 @@ import json
 import time
 import random
 import sqlite3
+import asyncio
 
 import bcrypt
 import tornado.ioloop
@@ -62,15 +63,15 @@ class BaseHandler(tornado.web.RequestHandler):
         return results[0]
 
 class HomeHandler(BaseHandler):
-    def get(self):
+    async def get(self):
         self.render('base.html')
-        
+            
 class PaperIndexHandler(BaseHandler):
     def get(self):
         page = int(self.get_query_argument('page', 1))
         papers = self.find_sort_by_updated({}, page)
         n_papers = self.application.mongo_client.paper.cs_paper_abs.count_documents({})
-        self.render('paper.html', papers=papers, page=page, total_num=n_papers)
+        self.render('index_base.html', papers=papers, page=page, total_num=n_papers)
 
 class TopicHandler(BaseHandler):
     def get(self, topic_index):
@@ -78,7 +79,7 @@ class TopicHandler(BaseHandler):
         page = int(self.get_query_argument('page', 1))
         papers = self.find_sort_by_updated(filter, page)
         n_papers = self.application.mongo_client.paper.cs_paper_abs.count_documents(filter)
-        self.render('topic.html', papers=papers, page=page, total_num=n_papers)
+        self.render('index_base.html', papers=papers, page=page, total_num=n_papers)
         
 class PaperHandler(BaseHandler):
     def get(self, paper_id):
@@ -174,7 +175,7 @@ class SearchHandler(BaseHandler):
         page = int(self.get_query_argument('page', 1))
         papers = self.find_sort_by_updated(filter, page)
         n_papers = self.application.mongo_client.paper.cs_paper_abs.count_documents(filter)
-        self.render('paper.html', papers=papers, page=page, total_num=n_papers)
+        self.render('index_base.html', papers=papers, page=page, total_num=n_papers)
         
 class RatingHandler(BaseHandler):
     @tornado.web.authenticated
@@ -190,9 +191,12 @@ class RatingHandler(BaseHandler):
         item_scores = [ele['rating'] for ele in item_scores]
         avg_score = round(sum(item_scores) / len(item_scores), 1)
         self.application.mongo_client.paper.cs_paper_abs.find_one_and_update({'_id': data['item']}, {'$set': {'avg_score': avg_score}})
-        if time.time() - self.application.last_update > UPDATE_DELAY:
-            await tornado.ioloop.IOLoop.current().run_in_executor(None, get_recommend_result)
-            self.application.last_update = time.time()
+        try:
+            if time.time() - self.application.last_update > UPDATE_DELAY:
+                await tornado.ioloop.IOLoop.current().run_in_executor(None, get_recommend_result)
+                self.application.last_update = time.time()
+        except KeyError:
+            pass
         
 class RecommenderHandler(BaseHandler):
     @tornado.web.authenticated
@@ -207,7 +211,7 @@ class RecommenderHandler(BaseHandler):
         for item in rec_items[(page-1)*10:(page*10)+1]:
             papers.append(self.application.mongo_client.paper.cs_paper_abs.find_one({'_id': item}))
         
-        self.render('paper.html', papers=papers, page=page, total_num=len(rec_items))
+        self.render('index_base.html', papers=papers, page=page, total_num=len(rec_items))
         
 class Application(tornado.web.Application):
     def __init__(self):

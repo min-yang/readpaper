@@ -31,7 +31,7 @@
             </form>
         </div>
         <p class='mid_size text'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
-    
+
         <p>相关链接：
         {% for link in paper['links'] %}
             <a href='{{link['href']}}' target='_blank'> {{ link['type'] }}</a>&nbsp;
@@ -58,7 +58,7 @@
         var token = document.querySelector('.text_rating input[name="_xsrf"]');
         var rad = document.querySelectorAll('.text_rating input[type="radio"]');
         var rating_error = document.querySelector('#rating_error');
-        
+
         function ErrorHandler(e) {
             if (e.target.status == 403) {
                 rating_error.textContent = '登录后才能进行评分';

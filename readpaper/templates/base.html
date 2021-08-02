@@ -22,11 +22,9 @@
                 {% end %}
             </div>
             <h1><a href='/'>智能信息平台</a></h1>
-        </div>
+        </div>    
         <div class='topnav'>
-            <a {% if request.path.startswith('/paper/') %}class='active'{% end %}href='/paper/index'>论文库</a>
-            <a {% if request.path.startswith('/topic/') %}class='active'{% end %}href='/topic/0'>主题模型</a>
-            <a {% if request.path.startswith('/recommender') %}class='active'{% end %}href='/recommender'>推荐系统</a>
+            <a {% if request.path.startswith('/paper/') %}class='active'{% end %}href='/paper/index'>arxiv论文</a>
         </div>
         <br>
         {%block search %}
@@ -37,11 +35,47 @@
             </form>
             </div>
         {% end %}
-        <div id='content'> 
-            {% block body %}
-                内容待定
-            {% end %}
+        <div id='content'>
+            <div class='dir'>
+                <h3>目录</h3>
+                <ol>
+                <li><a href='/paper/index'>文章索引</a></li>
+                <li>
+                    <button type='button' class='collapsible'>智能分类</button>
+                    <div class='dropdown_content' {% if request.path.startswith('/topic') %}style="display:block"{% end %}>
+                    <ol>
+                    {% for i in range(10) %}
+                        <li><span class='side_link'><a href='/topic/{{i}}'>&nbsp;编号{{i}}</a></span></li>
+                    {% end %}
+                    </ol>
+                    </div>
+                </li>
+                <li><a href='/recommender'>为你推荐</a></li>
+                </ol>
+            </div>
+            <div>
+                {% block body %}
+                    内容待定
+                {% end %}
+            </div>
         </div>
     </div>
    </body>
+   
+   <script>
+        var coll = document.getElementsByClassName("collapsible");
+        var i;
+
+        for (i = 0; i < coll.length; i++) {
+          coll[i].addEventListener("click", function() {
+            this.classList.toggle("active");
+            var content = this.nextElementSibling;
+            if (content.style.display === "block") {
+              content.style.display = "none";
+            } else {
+              content.style.display = "block";
+            }
+          });
+        }
+   </script>
 </html>
