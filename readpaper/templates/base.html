@@ -24,35 +24,15 @@
             <h1><a href='/'>智能信息平台</a></h1>
         </div>    
         <div class='topnav'>
-            <a {% if request.path.startswith('/paper/') %}class='active'{% end %}href='/paper/index'>arxiv论文</a>
+            <a {% if request.path.startswith('/arxiv/') %}class='active'{% end %}href='/arxiv/paper/index'>arxiv论文</a>
+            <a {% if request.path.startswith('/meiti/') %}class='active'{% end %}href='/meiti/paper/index'>媒体文章</a>
         </div>
         <br>
-        {%block search %}
-            <div>
-            <form action='/search' method='GET'>
-            <input name='keyword' type='text' class='search_ipt' value='{{ request.query_arguments.get('keyword', [b''])[0].decode() }}'>
-            <input type='submit' value='搜索' class='search_btn'>
-            </form>
-            </div>
+        {% block search %}
         {% end %}
         <div id='content'>
-            <div class='dir'>
-                <h3>目录</h3>
-                <ol>
-                <li><a href='/paper/index'>文章索引</a></li>
-                <li>
-                    <button type='button' class='collapsible'>智能分类</button>
-                    <div class='dropdown_content' {% if request.path.startswith('/topic') %}style="display:block"{% end %}>
-                    <ol>
-                    {% for i in range(10) %}
-                        <li><span class='side_link'><a href='/topic/{{i}}'>&nbsp;编号{{i}}</a></span></li>
-                    {% end %}
-                    </ol>
-                    </div>
-                </li>
-                <li><a href='/recommender'>为你推荐</a></li>
-                </ol>
-            </div>
+            {% block sub_dir %}
+            {% end %}
             <div>
                 {% block body %}
                     内容待定

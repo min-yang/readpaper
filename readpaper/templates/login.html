@@ -4,7 +4,7 @@
 {% end %}
 
 {% block body %}
-    <form action='{{ request.uri }}' method='POST'>
+    <form action='{{ request.uri }}' method='POST' style='width:400px'>
         用户名：<input name='username' type='text'><br>
         密码：<input name='password' type='password'><br>
         {% module xsrf_form_html() %}

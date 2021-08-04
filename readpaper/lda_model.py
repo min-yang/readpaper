@@ -1,5 +1,6 @@
 import logging
 
+import jieba
 from pymongo import MongoClient
 from gensim.test.utils import common_texts
 from gensim.models.doc2vec import Doc2Vec, TaggedDocument
@@ -8,24 +9,37 @@ from gensim.corpora import Dictionary
 from nltk.tokenize import RegexpTokenizer
 from nltk.stem.wordnet import WordNetLemmatizer
 
+from utils import collection_dict, collection_language
+
 logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
 
+def preprocess(doc, language, tokenizer, lemmatizer):
+    doc = doc['summary'].lower().replace('_', '')
+    if language == 'EN':
+        doc = tokenizer.tokenize(doc)
+        doc = [token for token in doc if not token.isnumeric()]
+        doc = [token for token in doc if len(token) > 1]
+        doc = [lemmatizer.lemmatize(token) for token in doc]
+    elif language == 'CN':
+        doc = jieba.lcut(doc)
+        doc = tokenizer.tokenize(' '.join(doc))
+        doc = [token for token in doc if not token.isnumeric()]
+    else:
+        raise ValueError('Unsupported language')
+    return doc
+
 class Corpus:
-    def __init__(self, collection, filter_dict):
+    def __init__(self, collection, filter_dict, language):
         self.collection = collection
         self.filter_dict = filter_dict
+        self.language = language
         self.tokenizer = RegexpTokenizer(r'\w+')
         self.lemmatizer = WordNetLemmatizer()
 
     def __iter__(self):
         docs = self.collection.find(self.filter_dict)
         for i, doc in enumerate(docs):
-            doc = doc['summary'].lower().replace('_', '')
-            doc = self.tokenizer.tokenize(doc)         
-            doc = [token for token in doc if not token.isnumeric()]
-            doc = [token for token in doc if len(token) > 1]
-            doc = [self.lemmatizer.lemmatize(token) for token in doc]
-            yield doc
+            yield preprocess(doc, self.language, self.tokenizer, self.lemmatizer)
 
 class BigramCorpus:
     def __init__(self, data_gen, bigram):
@@ -48,7 +62,7 @@ class BOW:
         for doc in self.data_gen:
             yield self.dictionary.doc2bow(doc)
             
-def result_write(collection, filter_dict, bigram, dictionary, model):
+def result_write(collection, language, filter_dict, bigram, dictionary, model):
     tokenizer = RegexpTokenizer(r'\w+')
     lemmatizer = WordNetLemmatizer()
         
@@ -56,13 +70,10 @@ def result_write(collection, filter_dict, bigram, dictionary, model):
     result = {}
     for doc in docs:
         rawid = doc['_id']
-        doc = doc['summary'].lower().replace('_', '')
-        doc = tokenizer.tokenize(doc)         
-        doc = [token for token in doc if not token.isnumeric()]
-        doc = [token for token in doc if len(token) > 1]
-        doc = [lemmatizer.lemmatize(token) for token in doc]
+        doc = preprocess(doc, language, tokenizer, lemmatizer)
         for token in bigram[doc]:
-            doc.append(token)
+            if '_' in token:
+                doc.append(token)
             
         x = dictionary.doc2bow(doc)
         scores = model[x]
@@ -92,20 +103,19 @@ class Inference:
         scores = self.model[x]
         return scores
         
-if __name__ == '__main__':
-    client = MongoClient()
-    
-    collection = client.paper.cs_paper_abs
+def main(key):
+    collection = collection_dict[key]
+    language = collection_language[key]
     filter_dict = {}
     
-    corpus = Corpus(collection, filter_dict)
+    corpus = Corpus(collection, filter_dict, language)
     bigram = Phrases(corpus, min_count=20)
-    bigram.save('saved/bigram.bin')
+    bigram.save('saved/%s_bigram.bin' %key)
     
     bigram_corpus = BigramCorpus(corpus, bigram)
     dictionary = Dictionary(bigram_corpus)
     dictionary.filter_extremes(no_below=20, no_above=0.5)
-    dictionary.save('saved/dictionary.bin')
+    dictionary.save('saved/%s_dictionary.bin' %key)
     
     my_corpus = BOW(bigram_corpus, dictionary)
     
@@ -131,8 +141,11 @@ if __name__ == '__main__':
         passes=passes,
         eval_every=eval_every
     )
-    model.save('saved/ldamodel.bin')
+    model.save('saved/%s_ldamodel.bin' %key)
     
-    result_write(collection, filter_dict, bigram, dictionary, model)
-    
+    result_write(collection, language, filter_dict, bigram, dictionary, model)
+        
+if __name__ == '__main__':
+    for key in collection_dict:
+        main(key)
     

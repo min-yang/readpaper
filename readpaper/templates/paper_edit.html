@@ -1,0 +1,15 @@
+{% extends 'index_base.html' %}
+
+{% block body %}
+<form action='{{ request.path }}' method='post' class='compose'>
+    <div><input name='title' type='text' class='title' value='{{ paper['title'] }}'></div>
+    <br>
+    <div><textarea name='summary' rows='30' cols='40' class='summary'>{{ paper['summary'] }}</textarea></div>
+    <br>
+    <div>
+        <input type='submit' value='保存'>&nbsp;
+        <a href='/{{ collection }}/paper/{{ paper['_id'] }}'>取消</a>
+    </div>
+    {% module xsrf_form_html() %}
+</form>
+{% end %}

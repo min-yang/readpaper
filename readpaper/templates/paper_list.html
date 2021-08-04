@@ -1,0 +1,104 @@
+{% extends 'index_base.html' %}
+
+{% block body %}
+    <div class='container'>
+        {% if request.query_arguments.get('keyword') %}
+            <div style='color:green;font-size:18px;'>"{{ request.query_arguments['keyword'][0].decode() }}"的搜索结果</div>
+        {% end %}
+        <article>
+        {% for i, paper in enumerate(papers[:10]) %}
+            {% if paper %}
+                <div class='star-ratings'>
+                <div class="star-ratings-css">
+                    <div class="star-ratings-css-top" style="width:{{ paper.get('avg_score', 0) / 5 * 100 }}%">
+                    <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                    </div>
+                    <div class="star-ratings-css-bottom">
+                    <span>☆</span><span>☆</span><span>☆</span><span>☆</span><span>☆</span>
+                    </div>
+                </div>
+                </div>
+                
+                <h3>
+                    <a href='/{{ collection }}/paper/{{paper['_id']}}' class='clean_link' target='_blank'>
+                    {{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}
+                    </a>
+                </h3>
+
+                
+                <p class='time'>{{ paper['updated'] }}</p>
+                {% if len(paper['summary']) > 1000 %}
+                {% end %}
+                <p style='font-size:1.1em;text-align:justify'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
+                <br>
+                <hr>
+            {% end %}
+        {% end %}
+        </article>
+         
+        {% block aside %}{% end %}
+    </div>
+    
+    {% if page %}
+        <div class='center'>
+        {% set query_dict = {} %}
+        {% set first_page = [] %}
+        {% set last_page = [] %}
+        {% set next_page = [] %}
+        {% for query in request.query.split('&') %}
+            {% set keyvalue = query.split('=') %}
+            {% if keyvalue[0] %}
+                {% set query_dict[keyvalue[0]] = keyvalue[1] %}
+            {% end %}
+        {% end %}
+        
+        {% if 'page' not in query_dict %}
+            {% set query_dict['page'] = 1 %}
+        {% end %}
+        
+        {% for keyvalue in query_dict.items() %}
+            {% if keyvalue[0] == 'page' %}
+                {% set first_page.append('page=1') %}
+                {% set last_page.append('page=%s' %(page-1)) %}
+                {% set next_page.append('page=%s' %(page+1)) %}
+            {% else %}
+                {% set first_page.append('%s=%s' %(keyvalue[0], keyvalue[1])) %}
+                {% set last_page.append('%s=%s' %(keyvalue[0], keyvalue[1])) %}
+                {% set next_page.append('%s=%s' %(keyvalue[0], keyvalue[1])) %}
+            {% end %}
+        {% end %}
+        
+        <a href="?{{ '&'.join(first_page) }}">首页</a>
+        {% if page!=1 %}
+            <a href="?{{ '&'.join(last_page) }}">上一页</a>
+        {% end if %}
+        第&nbsp;{{ page }}&nbsp;页
+        {% if len(papers)==11 %}
+            <a href="?{{ '&'.join(next_page) }}">下一页</a>
+        {% end if %}
+        <p>
+            每页<strong class='red'>10</strong>条，共<strong class='red'>{{ total_num }}</strong>条
+        <p> 
+            <form action='{{ request.path }}' method='GET'>
+            跳到<input name='page' type='text' size=3>页
+            {% for keyvalue in query_dict.items() %}
+                {% if keyvalue[0] != 'page' %}
+                    <input name='{{ keyvalue[0] }}' type='hidden' value='{{ url_unescape(keyvalue[1]) }}'>
+                {% end %}
+            {% end %}
+            <input type='submit' value='跳转'>
+            </form>
+        </p>
+        </div>
+    {% end if %}
+    
+    {% if 'keyword' in query_dict %}
+        <script>         
+            const box = document.querySelector('article');
+            var text = box.innerHTML;
+            const regex = new RegExp("{{ url_unescape(query_dict['keyword']).replace(' ', r'\\s') }}", 'gi');
+            const new_text = text.replace(regex, '<mark>$&</mark>');
+            box.innerHTML = new_text;
+        </script>
+    {% end %}
+{% end %}

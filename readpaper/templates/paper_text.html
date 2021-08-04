@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "index_base.html" %}
 
 {% block title %}论文正文{% end %}
 
@@ -30,8 +30,13 @@
               </fieldset>
             </form>
         </div>
-        <p class='mid_size text'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
-
+        
+        {% set p_list = re.split(r'\n', paper['summary']) %}
+        {% for para in p_list %}
+            {% set para = re.sub(r'^\s+', '', para) %}
+            <p class='mid_size text'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', para, flags=re.DOTALL) }}</p>
+        {% end %}
+        
         <p>相关链接：
         {% for link in paper['links'] %}
             <a href='{{link['href']}}' target='_blank'> {{ link['type'] }}</a>&nbsp;
@@ -42,13 +47,21 @@
             {{ tag['term'] }}&nbsp;
         {% end for %}
         </p>
-        <p class='time'>发表时间：{{ paper['published'] }}</p>
+        <p>
+            <a class='edit' href='{{ request.path }}/edit'>编辑</a>&nbsp;
+            <a class='edit' href='{{ request.path }}/delete' onClick="return confirm('确认删除？');">删除</a>&nbsp;
+            (需要管理员权限）
+        </p>
+        
+        {% if paper.get('published', False) %}
+            <p class='time'>发表时间：{{ paper['published'] }}</p>
+        {% end %}
         <p class='time'>更新时间：{{ paper['updated'] }}</p>
         <hr>
         <p>相似文献：
         <ol class='refs mid_size'>
         {% for sim in sim_title %}
-            <li><a href='/paper/{{sim[0]}}'>{{ sim[1] }}</a></li>
+            <li><a href='/{{ collection }}/paper/{{sim[0]}}'>{{ sim[1] }}</a></li>
         {% end for %}
         </ol>
         </p>
@@ -70,7 +83,7 @@
         for (var i = 0; i < rad.length; i++) {
             rad[i].addEventListener('change', function() {
                 var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/rating', true);
+                xhr.open('POST', '/{{ collection }}/rating', true);
                 xhr.setRequestHeader('X-XSRFToken', token.value);
                 xhr.addEventListener('loadend', ErrorHandler);
                 xhr.send(JSON.stringify({

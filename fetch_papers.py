@@ -5,6 +5,7 @@ so this file will be loaded first, and then new results will be added to it.
 """
 
 import os
+import re
 import time
 import pickle
 import random
@@ -95,7 +96,8 @@ if __name__ == "__main__":
       rawid, version = parse_arxiv_url(j['id'])
       j['_id'] = rawid
       j['_version'] = version
-
+      j['summary'] = re.sub(r'\s+', ' ', j['summary'])
+      
       # add to our database if we didn't have it before, or if this is a new version
       ret = cs_paper_abs.find_one({'_id': rawid})
       if ret and ret['_version'] >= version:
