@@ -2,37 +2,46 @@
 
 {% block body %}
     <div class='container'>
+        {% if request.path.startswith('/%s/random' %collection) %}
+            <p style='text-align:center'><a href='{{ request.path }}' class='edit'>刷新</a></p><br>
+        {% end %}
         {% if request.query_arguments.get('keyword') %}
             <div style='color:green;font-size:18px;'>"{{ request.query_arguments['keyword'][0].decode() }}"的搜索结果</div>
         {% end %}
         <article>
-        {% for i, paper in enumerate(papers[:10]) %}
-            {% if paper %}
-                <div class='star-ratings'>
-                <div class="star-ratings-css">
-                    <div class="star-ratings-css-top" style="width:{{ paper.get('avg_score', 0) / 5 * 100 }}%">
-                    <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+        {% if papers %}
+            {% for i, paper in enumerate(papers[:10]) %}
+                {% if paper %}
+                    <div class='star-ratings'>
+                    <div class="star-ratings-css">
+                        <div class="star-ratings-css-top" style="width:{{ paper.get('avg_score', 0) / 5 * 100 }}%">
+                        <span>★</span><span>★</span><span>★</span><span>★</span><span>★</span>
+                        </div>
+                        <div class="star-ratings-css-bottom">
+                        <span>☆</span><span>☆</span><span>☆</span><span>☆</span><span>☆</span>
+                        </div>
                     </div>
-                    <div class="star-ratings-css-bottom">
-                    <span>☆</span><span>☆</span><span>☆</span><span>☆</span><span>☆</span>
                     </div>
-                </div>
-                </div>
-                
-                <h3>
-                    <a href='/{{ collection }}/paper/{{paper['_id']}}' class='clean_link' target='_blank'>
-                    {{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}
-                    </a>
-                </h3>
+                    
+                    <h3>
+                        <a href='/{{ collection }}/paper/{{paper['_id']}}' class='clean_link' target='_blank'>
+                        {{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}
+                        </a>
+                    </h3>
 
-                
-                <p class='time'>{{ paper['updated'] }}</p>
-                {% if len(paper['summary']) > 1000 %}
+                    
+                    <p class='time'>{{ paper['updated'] }}</p>
+                    {% if len(paper['summary']) > 1000 %}
+                    {% end %}
+                    <p style='font-size:1.1em;text-align:justify'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
+                    <br>
+                    <hr>
                 {% end %}
-                <p style='font-size:1.1em;text-align:justify'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['summary'], flags=re.DOTALL) }}</p>
-                <br>
-                <hr>
             {% end %}
+        {% else %}
+            <h2 style='text-align:center;color:gray'>没有相关条目</h2>
+            <br>
+            <br>
         {% end %}
         </article>
          

@@ -8,6 +8,7 @@
 import re
 import time
 import hashlib
+import logging
 import datetime
 from urllib.parse import urljoin
 
@@ -18,6 +19,11 @@ from parsel import Selector
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError
 from diskcache import Cache
+
+import lda_model
+import doc2vec
+from fetch_papers import pull_arxiv_paper
+from utils import collection_dict
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
@@ -36,11 +42,11 @@ def byte_to_selector(content):
     text = content.decode(cchardet.detect(content[:1000])['encoding'])
     return Selector(text=text)
     
-def get_article(dir_url, proposer, record_xpath, title_xpath, summary_xpath):
+def get_article(dir_url, start_page, proposer, record_xpath, title_xpath, summary_xpath):
     client = MongoClient()
     dir_url_set = set()
     
-    page=1
+    page = start_page
     while True:
         current_dir_url = dir_url.format(page=page)
         page += 1
@@ -66,7 +72,7 @@ def get_article(dir_url, proposer, record_xpath, title_xpath, summary_xpath):
             try:
                 r = my_get(article_url)
             except Exception as e:
-                print('WARNING: [%s]请求失败:%s' %(article_url, e))
+                logging.warning('[%s]请求失败:%s' %(article_url, e))
                 continue
             doc = byte_to_selector(r.content)
 
@@ -81,37 +87,58 @@ def get_article(dir_url, proposer, record_xpath, title_xpath, summary_xpath):
                 ('title', title_xpath),
                 ('summary', summary_xpath)
             ]:
-                text = ' '.join(doc.xpath(part_xpath).getall())
+                text = '\n'.join(doc.xpath(part_xpath).getall())
                 if re.search(r'\w', text):
                     data[part] = text
             
-            if data.get('title', False) and data.get('summary', False): #必须不为空的部分
+            if data.get('title', False) and data.get('summary', False) and len(data.get('summary', '')) > 50: #入库条件
                 now = datetime.datetime.now().isoformat()
                 data['updated'] = now
                 client.article.crawl.insert_one(data)
-                print('INFO: [%s]插入成功' %article_url)
+                logging.info('[%s]插入成功' %article_url)
                 success += 1
             else:
-                print('WARNING: [%s]标题为空或正文为空' %article_url)
+                logging.warning('[%s]标题为空或正文内容太少' %article_url)
         
-        print('INFO: 目录[%s]，成功插入%s条，共%s条' %(current_dir_url, success, len(records)))
+        logging.info('目录[%s]，成功插入%s条，共%s条' %(current_dir_url, success, len(records)))
         if not hit:
             break
 
 def run():
+    t_start = time.time()
+    one_day = 3600 * 24
+    
     cache = Cache('crawl_target')
     for key in cache:
         args = cache.get(key, None)
         if args:
+            if len(args) == 1:
+                args = cache.get(args[0], None)
+                if not args:
+                    logging.error('[%s]参数错误' %key)
+                    continue
+            if len(args) == 4:
+                args = [1] + args
             get_article(key, *args)
     
-    print('INFO: 一轮爬取已结束，休眠1小时')
+    #一天检索一次arxiv论文库，同时更新下LDA模型
+    if time.time() - t_start > one_day:
+        pull_arxiv_paper()
+        t_start = time.time()
+        for key in collection_dict:
+            lda_model.main(key)
+        
+    for key in collection_dict:
+        doc2vec.main(key)
+        
+    logging.info('一轮爬取已结束，休眠1小时')
     time.sleep(3600) #更新频率低的话可以隔几天跑一轮，要视具体情况而定
 
 if __name__ == '__main__':
     #任务调度示例
     cache = Cache('crawl_target')
-    args = { #参数顺序proposer, record_xpath, title_xpath, summary_xpath 
+    #人民网
+    args = { #参数顺序start_page, proposer, record_xpath, title_xpath, summary_xpath
         'http://cpc.people.com.cn/GB/87228/index{page}.html': [
             'admin',
             '//div[contains(@class, "fl")]//li/a/@href',
@@ -129,8 +156,57 @@ if __name__ == '__main__':
             '//div[contains(@class, "fl")]//li/a/@href',
             '//h1/text()',
             '//div[contains(@class, "rm_txt_con")]/p/text()',
-        ]
+        ],
     }
+    
+    #光明网
+    args['https://politics.gmw.cn/node_9844_{page}.htm'] = [
+            2, #起始页码
+            'admin',
+            '//ul[contains(@class, "channel-newsGroup")]/li//a/@href',
+            '//h1/text()',
+            '//div[contains(@class, "u-mainText")]/p/text()',
+    ]
+    for dir_url in [
+        'https://politics.gmw.cn/node_9840_{page}.htm',
+        'https://politics.gmw.cn/node_9831_{page}.htm',
+        'https://politics.gmw.cn/node_9828_{page}.htm',
+        'https://politics.gmw.cn/node_9836_{page}.htm',
+        'https://politics.gmw.cn/node_26858_{page}.htm',
+        'https://world.gmw.cn/node_4661_{page}.htm',
+        'https://world.gmw.cn/node_24177_{page}.htm',
+        'https://world.gmw.cn/node_4485_{page}.htm',
+        'https://world.gmw.cn/node_4696_{page}.htm',
+        'https://world.gmw.cn/node_24179_{page}.htm',
+        'https://world.gmw.cn/node_4660_{page}.htm',
+        'https://guancha.gmw.cn/node_86599_{page}.htm',
+        'https://guancha.gmw.cn/node_7292_{page}.htm',
+        'https://guancha.gmw.cn/node_87838_{page}.htm',
+        'https://guancha.gmw.cn/node_26275_{page}.htm',
+        'https://theory.gmw.cn/node_10133_{page}.htm',
+        'https://theory.gmw.cn/node_97957_{page}.htm',
+        'https://theory.gmw.cn/node_47530_{page}.htm',
+        'https://theory.gmw.cn/node_97958_{page}.htm',
+        'https://theory.gmw.cn/node_97034_{page}.htm',
+        'https://theory.gmw.cn/node_41267_{page}.htm',
+        'https://culture.gmw.cn/node_10570_{page}.htm',
+        'https://culture.gmw.cn/node_10572_{page}.htm',
+        'https://culture.gmw.cn/node_10565_{page}.htm',
+        'https://culture.gmw.cn/node_4369_{page}.htm',
+        'https://culture.gmw.cn/node_10559_{page}.htm',
+        'https://culture.gmw.cn/node_10250_{page}.htm',
+        'https://culture.gmw.cn/node_40271_{page}.htm',
+        'https://culture.gmw.cn/node_110874_{page}.htm',
+    ]:
+        args[dir_url] = ['https://politics.gmw.cn/node_9844_{page}.htm']
+    
+    args['https://guancha.gmw.cn/node_11273_{page}.htm'] = [
+        2,
+        'admin',
+        '//p[contains(@class, "main_title")]/a/@href',
+        '//h1/text()',
+        '//div[contains(@class, "u-mainText")]/p/text()',
+    ]
     
     for key in args:
         cache[key] = args[key]

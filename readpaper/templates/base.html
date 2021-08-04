@@ -24,8 +24,8 @@
             <h1><a href='/'>智能信息平台</a></h1>
         </div>    
         <div class='topnav'>
-            <a {% if request.path.startswith('/arxiv/') %}class='active'{% end %}href='/arxiv/paper/index'>arxiv论文</a>
-            <a {% if request.path.startswith('/meiti/') %}class='active'{% end %}href='/meiti/paper/index'>媒体文章</a>
+            <a {% if request.path.startswith('/arxiv/') %}class='active'{% end %}href='/arxiv/index'>arxiv论文</a>
+            <a {% if request.path.startswith('/meiti/') %}class='active'{% end %}href='/meiti/index'>媒体文章</a>
         </div>
         <br>
         {% block search %}

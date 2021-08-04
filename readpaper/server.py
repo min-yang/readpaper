@@ -284,6 +284,42 @@ class PaperDeleteHandler(BaseHandler):
         collection.delete_one({'_id': paper_id})
         self.redirect('/%s/paper/index' %collection_key)
 
+class PaperYouRatingHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self, collection_key):
+        collection = collection_dict[collection_key]
+        page = int(self.get_query_argument('page', 1))
+        records = self.query(
+            'select item from user_rate_%s where user=? limit 11 offset ?' %collection_key,
+            (self.current_user, (page - 1) * 10, )
+        )
+        total_num = self.query(
+            'select count(*) from user_rate_%s where user=?' %collection_key, (self.current_user, )
+        )[0]['count(*)']
+        
+        papers = []
+        for record in records:
+            item_doc = collection.find_one({'_id': record['item']})
+            if item_doc:
+                papers.append(self.post_process(item_doc))
+            else:
+                papers.append(None)
+                
+        self.render('paper_list.html', collection=collection_key, papers=papers, page=page, total_num=total_num)
+
+class PaperRandomHandler(BaseHandler):
+    def get(self, collection_key):
+        collection = collection_dict[collection_key]
+        
+        papers = []
+        id_set = set()
+        for paper in collection.aggregate([{'$sample': {'size': 10}}]):
+            if paper['_id'] not in id_set:
+                id_set.add(paper['_id'])
+                papers.append(self.post_process(paper))
+        
+        self.render('paper_list.html', collection=collection_key, papers=papers, page=1, total_num=len(papers))
+            
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
@@ -293,11 +329,13 @@ class Application(tornado.web.Application):
         self.table_define()
         handlers = [
             (r'/', HomeHandler),
-            (r"/([a-z]+)/paper/index", PaperIndexHandler),
+            (r"/([a-z]+)/index", PaperIndexHandler),
             (r"/([a-z]+)/topic/([0-9]+)", TopicHandler),
             (r"/([a-z]+)/paper/([0-9a-z.]+)", PaperHandler),
             (r"/([a-z]+)/paper/([0-9a-z.]+)/edit", PaperEditHandler),
             (r"/([a-z]+)/paper/([0-9a-z.]+)/delete", PaperDeleteHandler),
+            (r"/([a-z]+)/youRating", PaperYouRatingHandler),
+            (r"/([a-z]+)/random", PaperRandomHandler),
             (r'/([a-z]+)/search', SearchHandler),
             (r'/auth/login', LoginHandler),
             (r'/auth/create', UserCreateHandler),

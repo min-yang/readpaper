@@ -13,7 +13,7 @@
     <div class='dir'>
         <h3>目录</h3>
         <ol>
-        <li><a href='/{{ collection }}/paper/index'>文章索引</a></li>
+        <li><a href='/{{ collection }}/index'>文章索引</a></li>
         <li>
             <button type='button' class='collapsible'>智能分类</button>
             <div class='dropdown_content' {% if '/topic/' in request.path %}style="display:block"{% end %}>
@@ -31,6 +31,8 @@
             </div>
         </li>
         <li><a href='/{{ collection }}/recommender'>为你推荐</a></li>
+        <li><a href='/{{ collection }}/random'>随便看看</a></li>
+        <li><a href='/{{ collection }}/youRating'>评价历史</a></li>
         </ol>
     </div>
 {% end %}

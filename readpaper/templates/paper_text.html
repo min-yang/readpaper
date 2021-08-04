@@ -3,6 +3,7 @@
 {% block title %}论文正文{% end %}
 
 {% block body %}
+    智能分类编号：{{ paper.get('topic_index', '无') }}
     <p style='color:red;text-align:center;font-size:1.3em' id='rating_error'><p>
     <h1 class='center'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', paper['title'], flags=re.DOTALL) }}</h1>
     <h4 class='center'>
