@@ -11,7 +11,7 @@ from nltk.stem.wordnet import WordNetLemmatizer
 
 from utils import collection_dict, collection_language
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+logging.basicConfig(format='[%(levelname)1.1s %(asctime)s %(module)s:%(lineno)d] %(message)s', level=logging.INFO)
 
 def preprocess(doc, language, tokenizer, lemmatizer):
     doc = doc['summary'].lower().replace('_', '')
@@ -104,7 +104,9 @@ class Inference:
         return scores
         
 def main(key):
-    collection = collection_dict[key]
+    client - MongoClient()
+    
+    collection = eval('client.' + collection_dict[key])
     language = collection_language[key]
     filter_dict = {}
     

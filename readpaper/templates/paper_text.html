@@ -38,7 +38,7 @@
             <p class='mid_size text'>{{ re.sub(r'\$\\mathcal(.*?)\$|\$(.*?)\$', r'\(\1\2\)', para, flags=re.DOTALL) }}</p>
         {% end %}
         
-        <p>相关链接：
+        <p>原文链接：
         {% for link in paper['links'] %}
             <a href='{{link['href']}}' target='_blank'> {{ link['type'] }}</a>&nbsp;
         {% end for %}
@@ -66,18 +66,82 @@
         {% end for %}
         </ol>
         </p>
+        <br>
+        <style>
+            table {
+                border-collapse: collapse;
+
+                letter-spacing: 1px;
+                width: 100%;              
+            }
+            
+            td {
+
+                padding: 10px 20px;
+            }
+            
+            tr:nth-child(even) td {
+                background-color: rgb(250,250,250);
+            }
+            
+            tr:nth-child(odd) td {
+                background-color: rgb(245,245,245);
+            }
+            
+            table > tbody > tr > td > p:nth-child(n+2) {
+                color: gray;
+                text-align: right;
+                margin-top: 0;
+                margin-bottom: 3px;
+            }
+        </style>
+        <textarea id='comment' style='width:100%;height:100px;font-size:16px;' placeholder='在此编辑你的看法' maxlength='1000'></textarea><br><br>
+        <input type='submit' id='comment' style='float:right' value='发布评论'><br><br><br>
+        网友评论：
+        <table id='comment'>
+        <tbody>
+        </tbody>
+        </table>
+        <p id='table_info' style='text-align:center;color:gray'></p>
     </div>
 
     <script>
         var token = document.querySelector('.text_rating input[name="_xsrf"]');
         var rad = document.querySelectorAll('.text_rating input[type="radio"]');
         var rating_error = document.querySelector('#rating_error');
-
+        var comment_text = document.querySelector('textarea[id="comment"]');
+        var comment_button = document.querySelector('input[id="comment"]');
+        var comment_tbody = document.querySelector('table[id="comment"] tbody');
+        var table_info = document.querySelector('p[id="table_info"]');
+        var page = 1;
+        var is_load = false;
+        var load_end = false;
+        
+        comment_button.onclick = function submit_comment() {
+            var comment = comment_text.value;
+            if (comment.length < 1) {
+                window.alert('你还没有输入评论');
+                return;
+            }
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/comment', true);
+            xhr.setRequestHeader('X-XSRFToken', token.value);
+            xhr.addEventListener('loadend', ErrorHandler);
+            xhr.send(JSON.stringify({
+                comment: comment,
+                user: '{{ current_user }}',
+                collection: '{{ collection }}',
+                item: '{{ paper["_id"] }}',
+            }));
+        }
+        
         function ErrorHandler(e) {
-            if (e.target.status == 403) {
-                rating_error.textContent = '登录后才能进行评分';
-            } else {
+            if (e.target.status == 200) {
                 location.reload();
+            } else if (e.target.status == 403) {
+                window.alert('没有权限');
+            } else {
+                window.alert('错误码：' + e.target.status);
             }
         }
         
@@ -93,6 +157,62 @@
                     item: '{{ paper['_id'] }}',
                 }));
             });
+        }
+        
+        function append_comment(e) {
+            if (e.target.status == 200) {
+                const data = JSON.parse(e.target.response);
+                data['comments'].forEach((comment) => {
+                    var tr = document.createElement('tr');
+                    var td = document.createElement('td');
+                    var comment_p = document.createElement('p');
+                    var comment_p_2 = document.createElement('p');
+                    var comment_p_3 = document.createElement('p');
+                    comment_p.textContent = comment['comment'];
+                    comment_p_2.textContent = comment['user'];
+                    comment_p_3.textContent = comment['update_time'];
+                    td.appendChild(comment_p);
+                    td.appendChild(comment_p_2);
+                    td.appendChild(comment_p_3);
+                    tr.appendChild(td);
+                    comment_tbody.appendChild(tr);
+                })
+                if (data['comments'].length == 0) {
+                    load_end = true;
+                    table_info.textContent = '到底了';
+                } else {
+                    table_info.textContent = '';
+                }
+                page += 1;
+                is_load = false;
+            } else {
+                console.log('错误码：' + e.target.status);
+                table_info.textContent = '加载失败，'
+                const retry = document.createElement('button');
+                retry.onclick = function() {
+                    is_load = false;
+                    comment_load();
+                }
+                retry.textContent = '重试';
+                table_info.appendChild(retry);
+            }
+        }
+        
+        function comment_load() {
+            is_load = true;
+            table_info.textContent = '加载中';
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/comment', true);
+            xhr.setRequestHeader('page', page);
+            xhr.setRequestHeader('collection', '{{ collection }}');
+            xhr.setRequestHeader('item', '{{ paper["_id"] }}');
+            xhr.addEventListener('loadend', append_comment);
+            xhr.send();
+        }
+        window.onscroll = function() {
+            if (!is_load && !load_end && (window.innerHeight + window.scrollY) >= document.body.offsetHeight){
+                comment_load();
+            }
         }
     </script>
     

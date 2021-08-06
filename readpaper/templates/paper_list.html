@@ -48,7 +48,9 @@
         {% block aside %}{% end %}
     </div>
     
-    {% if page %}
+    {% if request.path.startswith('/%s/random' %collection) %}
+        <p style='text-align:center'><a href='{{ request.path }}' class='edit'>刷新</a></p><br>
+    {% else %}
         <div class='center'>
         {% set query_dict = {} %}
         {% set first_page = [] %}
@@ -99,15 +101,29 @@
             </form>
         </p>
         </div>
-    {% end if %}
-    
-    {% if 'keyword' in query_dict %}
-        <script>         
-            const box = document.querySelector('article');
-            var text = box.innerHTML;
-            const regex = new RegExp("{{ url_unescape(query_dict['keyword']).replace(' ', r'\\s') }}", 'gi');
-            const new_text = text.replace(regex, '<mark>$&</mark>');
-            box.innerHTML = new_text;
-        </script>
+
+        {% if 'keyword' in query_dict %}
+            <script>         
+                const boxes = document.querySelectorAll('article h3 a, article p');
+                boxes.forEach((box) => {
+                    var text = box.innerHTML;
+                    const regex = new RegExp("{{ url_unescape(query_dict['keyword']).replace(' ', r'\\s') }}", 'gi');
+                    const new_text = text.replace(regex, '<mark>$&</mark>');
+                    box.innerHTML = new_text;
+                })
+            </script>
+        {% end %}
     {% end %}
+    <script>
+        const regexpTime = /(.+)\./;
+        const time_nodes = document.querySelectorAll('.time');
+        time_nodes.forEach((node) => {
+            var text = node.textContent;
+            const match = text.match(regexpTime);
+            if (match) {
+                text = match[1] + 'Z';
+                node.textContent = text;
+            }
+        })
+    </script>
 {% end %}

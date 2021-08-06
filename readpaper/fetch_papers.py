@@ -13,7 +13,6 @@ import argparse
 import urllib.request
 import feedparser
 
-from utils import Config, safe_pickle_dump
 from pymongo import MongoClient
 
 def encode_feedparser_dict(d):

@@ -8,6 +8,7 @@ import lightfm.data
 import gensim
 import numpy as np
 from scipy import sparse
+from pymongo import MongoClient
 
 from utils import collection_dict
 
@@ -21,23 +22,36 @@ def get_recommend_result(key):
     
     t0 = time.time()
     conn = sqlite3.connect('user.db')
-
+    client = MongoClient()
+    
     users = []
     for row in conn.execute('select name from users').fetchall():
         users.append(row[0])
 
     items = []
-    collection = collection_dict[key]
+    collection = eval('client.' + collection_dict[key])
     for paper in collection.find(projection=[]):
         items.append(paper['_id'])
         
     doc_model = gensim.models.doc2vec.Doc2Vec.load('saved/%s_doc2vec.bin' %key)
     item_features = []
+    item_without_feature = []
     for item in items:
-        item_features.append(doc_model[item])
+        try:
+            item_features.append(doc_model[item])
+        except KeyError:
+            item_without_feature.append(item)
+    
+    for item in item_without_feature:
+        items.remove(item)
+    
     item_features = sparse.csr_matrix(np.array(item_features))
     
-    valid_ratings = conn.execute('select * from user_rate_%s' %key).fetchall()
+    ratings = conn.execute('select * from user_rate_%s' %key).fetchall()
+    valid_ratings = []
+    for rating in ratings:
+        if rating[1] not in item_without_feature:
+            valid_ratings.append(rating)
     
     dataset = lightfm.data.Dataset()
     dataset.fit(users, items)

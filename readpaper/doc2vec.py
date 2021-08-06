@@ -4,10 +4,11 @@ import logging
 
 import gensim
 import jieba
+from pymongo import MongoClient
 
 from utils import collection_dict, collection_language
 
-logging.basicConfig(format='%(asctime)s : %(levelname)s : %(message)s', level=logging.INFO)
+logging.basicConfig(format='[%(levelname)1.1s %(asctime)s %(module)s:%(lineno)d] %(message)s', level=logging.INFO)
 
 class Corpus:
     def __init__(self, collection, filter_dict, language, tokens_only=False):
@@ -61,7 +62,8 @@ def result_write(corpus, collection, key):
         collection.find_one_and_update({'_id': doc_id}, {'$set': {'similar_paper': similar_paper}})
 
 def main(key):
-    collection = collection_dict[key]
+    client = MongoClient()
+    collection = eval('client.' + collection_dict[key])
     language = collection_language[key]
     filter_dict = {}
     train_corpus = Corpus(collection, filter_dict, language)

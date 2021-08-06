@@ -6,6 +6,8 @@ import random
 import sqlite3
 import asyncio
 import logging
+import datetime
+from multiprocessing import Process
 
 import bcrypt
 import tornado.ioloop
@@ -14,6 +16,7 @@ import tornado.options
 import pymongo
 from pymongo import MongoClient
 
+import article_collect
 from rec_sys import get_recommend_result
 from utils import collection_dict, collection_language
 
@@ -27,6 +30,12 @@ def check_contain_chinese(text):
     return False
 
 class BaseHandler(tornado.web.RequestHandler):
+    def write_error(self, status_code, **kwargs):
+        self.render('error.html', info='%s:%s' %(status_code, self._reason))
+    
+    def open_mongo(self, collection):
+        return eval('self.application.mongo_client.' + collection)
+        
     def custom_find(self, collection, *args, **kwargs):
         my_params = {'projection': ['_id', 'title', 'summary', 'updated', 'avg_score']}
         my_params.update(kwargs)
@@ -89,7 +98,7 @@ class HomeHandler(BaseHandler):
             
 class PaperIndexHandler(BaseHandler):
     def get(self, collection_key):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         page = int(self.get_query_argument('page', 1))
         papers = self.find_sort_by_updated(collection, {}, page)
         n_papers = collection.count_documents({})
@@ -97,7 +106,7 @@ class PaperIndexHandler(BaseHandler):
 
 class TopicHandler(BaseHandler):
     def get(self, collection_key, topic_index):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         filter = {'topic_index': int(topic_index)}
         page = int(self.get_query_argument('page', 1))
         papers = self.find_sort_by_updated(collection, filter, page)
@@ -107,7 +116,7 @@ class TopicHandler(BaseHandler):
 class PaperHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self, collection_key, paper_id):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         paper = collection.find_one({'_id': paper_id})
         if not paper:
             raise tornado.web.HTTPError(404)
@@ -189,7 +198,7 @@ class LogoutHandler(BaseHandler):
         
 class SearchHandler(BaseHandler):
     def get(self, collection_key):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         keyword = self.get_argument('keyword')
         no_word_list = re.findall(r'\W+$', keyword)
         if no_word_list:
@@ -212,7 +221,7 @@ class RatingHandler(BaseHandler):
     @tornado.web.authenticated
     async def post(self, collection_key):
         data = json.loads(self.request.body)
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         self.query('insert or replace into user_rate_%s values (?, ?, ?)' %collection_key, (
             data['user'], 
             data['item'], 
@@ -233,7 +242,7 @@ class RatingHandler(BaseHandler):
 class RecommenderHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self, collection_key):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         page = int(self.get_query_argument('page', 1))
         
         rec_items = eval(self.query(
@@ -255,7 +264,7 @@ class PaperEditHandler(BaseHandler):
     def get(self, collection_key, paper_id):
         if not self.is_admin:
             raise tornado.web.HTTPError(403)
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         paper = collection.find_one({'_id': paper_id})
         if not paper:
             raise tornado.web.HTTPError(404)
@@ -266,7 +275,7 @@ class PaperEditHandler(BaseHandler):
     def post(self, collection_key, paper_id):
         if not self.is_admin:
             raise tornado.web.HTTPError(403)
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         title = self.get_argument('title')
         summary = self.get_argument('summary')
         
@@ -280,14 +289,14 @@ class PaperDeleteHandler(BaseHandler):
     def get(self, collection_key, paper_id):
         if not self.is_admin:
             raise tornado.web.HTTPError(403)
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         collection.delete_one({'_id': paper_id})
         self.redirect('/%s/paper/index' %collection_key)
 
 class PaperYouRatingHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self, collection_key):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         page = int(self.get_query_argument('page', 1))
         records = self.query(
             'select item from user_rate_%s where user=? limit 11 offset ?' %collection_key,
@@ -309,7 +318,7 @@ class PaperYouRatingHandler(BaseHandler):
 
 class PaperRandomHandler(BaseHandler):
     def get(self, collection_key):
-        collection = collection_dict[collection_key]
+        collection = self.open_mongo(collection_dict[collection_key])
         
         papers = []
         id_set = set()
@@ -319,7 +328,33 @@ class PaperRandomHandler(BaseHandler):
                 papers.append(self.post_process(paper))
         
         self.render('paper_list.html', collection=collection_key, papers=papers, page=1, total_num=len(papers))
-            
+    
+class CommentHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        item = self.request.headers['item']
+        page = int(self.request.headers['page']) - 1
+        collection = self.request.headers['collection']
+        
+        comments = []
+        for comment in self.application.mongo_client.user.comment.find(
+            {'item': item, 'collection': collection},
+            projection = {'_id': False, 'user': True, 'item': True, 'comment': True, 'update_time': True},
+            skip = 10 * page,
+            limit = 10,
+            sort = [('update_time', pymongo.DESCENDING)],
+        ):
+            comment['update_time'] = datetime.datetime.fromtimestamp(comment['update_time']).strftime('%Y-%m-%d %H:%M:%S')
+            comments.append(comment)
+        
+        self.finish({'comments': comments})
+        
+    @tornado.web.authenticated
+    def post(self):
+        data = json.loads(self.request.body)
+        data['update_time'] = time.time()
+        self.application.mongo_client.user.comment.insert_one(data)
+     
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
@@ -337,6 +372,7 @@ class Application(tornado.web.Application):
             (r"/([a-z]+)/youRating", PaperYouRatingHandler),
             (r"/([a-z]+)/random", PaperRandomHandler),
             (r'/([a-z]+)/search', SearchHandler),
+            (r'/comment', CommentHandler),
             (r'/auth/login', LoginHandler),
             (r'/auth/create', UserCreateHandler),
             (r'/auth/logout', LogoutHandler),
@@ -368,6 +404,9 @@ class Application(tornado.web.Application):
                 )
 
 if __name__ == "__main__":
+#    p = Process(target=article_collect.run)
+#    p.start()
+    
     tornado.options.parse_command_line()
     app = Application()
     app.listen(8000)
