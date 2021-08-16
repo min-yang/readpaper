@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block sub_dir %}
+    <div class='dir'>
+        <h3>目录</h3>
+        <ol>
+        <li><a href='/ai/imageClassifier'>图片分类</a></li>
+        </ol>
+    </div>
+{% end %}
+
+{% block body %}
+<style>
+    .class_show {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-around;
+        margin: 2% 20% 0 20%;
+    }
+    .class_name {
+        border: 0;
+        background-color: #d9fdff;
+        color: black;
+        line-height: 1.5;
+        font-size: 1rem;
+        width: auto;
+        margin: 5px;
+        padding: 8px;
+    }
+</style>
+<form method='post' enctype="multipart/form-data">
+    请上传图片：<input type='file' name='image' accept='image/*'><br><br>
+    {% module xsrf_form_html() %}
+    <input type='submit' value='分类'>
+</form>
+<div style='text-align:center'>
+    {% if class_data %}
+        <img src='{{ static_url(current_user) }}' alt='图片' width='auto' height='55%'></img><br>
+        <div class='class_show'>
+        {% for ele in class_data %}
+            <button class='class_name'>{{ ele[0] }} ({{ round(ele[1]*100) }}%)</button>
+        {% end %}
+        </div>
+        <p style='color:red'>注：括号内的值代表置信度</p>
+    {% end %}
+</div>
+{% end %}

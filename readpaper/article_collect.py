@@ -39,7 +39,7 @@ def my_get(url):
     return r
     
 def byte_to_selector(content):
-    text = content.decode(cchardet.detect(content[:1000])['encoding'])
+    text = content.decode(cchardet.detect(content[:1000])['encoding'], errors='ignore')
     return Selector(text=text)
 
 def get_article(dir_url, start_page, proposer, record_xpath, title_xpath, summary_xpath):
@@ -213,6 +213,15 @@ if __name__ == '__main__':
         '//p[contains(@class, "main_title")]/a/@href',
         '//h1/text()',
         '//div[contains(@class, "u-mainText")]/p/text()',
+    ]
+    
+    #中国新闻网
+    args['http://www.chinanews.com/scroll-news/news{page}.html'] = [
+        1,
+        'admin',
+        '//div[contains(@class, "dd_bt")]/a/@href',
+        '//div[contains(@class, "content")]/h1/text()',
+        '//div[contains(@class, "left_zw")]/p/text()',
     ]
     
     for key in args:

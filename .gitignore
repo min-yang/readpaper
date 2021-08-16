@@ -15,3 +15,6 @@ readpaper/saved/
 *.db
 *.txt
 crawl_target
+readpaper/.ipynb_checkpoints/
+readpaper/test-clm/
+readpaper/test_image/

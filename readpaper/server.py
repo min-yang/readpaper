@@ -7,6 +7,7 @@ import sqlite3
 import asyncio
 import logging
 import datetime
+from io import BytesIO
 from multiprocessing import Process
 
 import bcrypt
@@ -19,6 +20,7 @@ from pymongo import MongoClient
 import article_collect
 from rec_sys import get_recommend_result
 from utils import collection_dict, collection_language
+from image_cls import imageClassifier
 
 UPDATE_DELAY = 60 * 5
 ADMIN_USERS = ['yangmin', 'yangmin2', 'yangmin3']
@@ -355,11 +357,30 @@ class CommentHandler(BaseHandler):
         data['update_time'] = time.time()
         self.application.mongo_client.user.comment.insert_one(data)
      
+class ImageClsHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        try:
+            os.remove('static/%s' %self.current_user)
+        except FileNotFoundError:
+            pass
+        self.render('imgClassifier.html', class_data=None)
+    
+    @tornado.web.authenticated
+    def post(self):
+        img_byte = self.request.files.get('image', [{}])[0].get('body', None)
+        if img_byte:
+            open('static/%s' %self.current_user, 'wb').write(img_byte)
+            img_file = BytesIO(img_byte)
+            class_data = self.application.img_classifier.run(img_file)
+            self.render('imgClassifier.html', class_data=class_data)
+    
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
         self.user_db.row_factory = sqlite3.Row
         self.mongo_client = MongoClient()
+        self.img_classifier = imageClassifier()
         self.last_update = 0
         self.table_define()
         handlers = [
@@ -378,6 +399,7 @@ class Application(tornado.web.Application):
             (r'/auth/logout', LogoutHandler),
             (r'/([a-z]+)/rating', RatingHandler),
             (r'/([a-z]+)/recommender', RecommenderHandler),
+            (r'/ai/imageClassifier', ImageClsHandler), 
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
