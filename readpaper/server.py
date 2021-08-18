@@ -9,6 +9,7 @@ import logging
 import datetime
 from io import BytesIO
 from multiprocessing import Process
+from functools import lru_cache
 
 import bcrypt
 import tornado.ioloop
@@ -20,7 +21,7 @@ from pymongo import MongoClient
 import article_collect
 from rec_sys import get_recommend_result
 from utils import collection_dict, collection_language
-from image_cls import imageClassifier
+from aiModule import imageClassifier, Translation
 
 UPDATE_DELAY = 60 * 5
 ADMIN_USERS = ['yangmin', 'yangmin2', 'yangmin3']
@@ -372,15 +373,46 @@ class ImageClsHandler(BaseHandler):
         if img_byte:
             open('static/%s' %self.current_user, 'wb').write(img_byte)
             img_file = BytesIO(img_byte)
-            class_data = self.application.img_classifier.run(img_file)
-            self.render('imgClassifier.html', class_data=class_data)
+            
+            if not issubclass(type(self.application.ai_model), imageClassifier):
+                self.application.ai_model = imageClassifier()
+            
+            class_data = self.application.ai_model.run(img_file)
+            self.render('imgClassifier.html', class_data=class_data)   
+            
+class TranslationHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        self.render('translation.html')
+        
+    @staticmethod
+    @lru_cache()
+    def translate(src_lang, dst_lang, src_text):    
+        return Translation().run(src_text)
     
+    @tornado.web.authenticated
+    async def post(self):
+        src_lang = self.get_argument('src_lang')
+        dst_lang = self.get_argument('dst_lang')
+        src_text = self.get_argument('src_text')
+        
+        dst_text = await tornado.ioloop.IOLoop.current().run_in_executor(
+            None,
+            self.translate,
+            src_lang,
+            dst_lang,
+            src_text,
+        )
+        print(self.translate.cache_info())
+        
+        self.finish(dst_text)
+            
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
         self.user_db.row_factory = sqlite3.Row
         self.mongo_client = MongoClient()
-        self.img_classifier = imageClassifier()
+        self.ai_model = None # imageClassifier()
         self.last_update = 0
         self.table_define()
         handlers = [
@@ -399,7 +431,8 @@ class Application(tornado.web.Application):
             (r'/auth/logout', LogoutHandler),
             (r'/([a-z]+)/rating', RatingHandler),
             (r'/([a-z]+)/recommender', RecommenderHandler),
-            (r'/ai/imageClassifier', ImageClsHandler), 
+            (r'/ai/imageClassifier', ImageClsHandler),
+            (r'/ai/translation', TranslationHandler),
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),

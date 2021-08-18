@@ -6,6 +6,7 @@ import torch
 import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
+from transformers import AutoModelWithLMHead, AutoTokenizer
 
 class imageClassifier:
     def __init__(self):
@@ -65,6 +66,16 @@ class imageClassifier:
         for i in range(len(class_names)):
             ret_data.append((class_names[i].replace('_', ' '), scores[i].item()))
         return ret_data
+        
+class Translation:
+    def __init__(self):
+        self.model = AutoModelWithLMHead.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+        self.tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+        
+    def run(self, text):
+        inputs = self.tokenizer.encode(text, return_tensors='pt')
+        outputs = self.model.generate(inputs)
+        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         
 if __name__ == '__main__':
     img_cls = imageClassifier()

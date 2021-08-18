@@ -1,0 +1,53 @@
+{% extends 'ai_base.html' %}
+
+{% block body %}
+    <p id='info' style='color:red'></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;column-gap:10px">
+        <div>
+            <select name='src_lang'>
+                <option value='en'>英文</option>
+            </select><br><br>
+            <textarea name='src_text' rows='10' cols='50'></textarea>
+        </div>
+        <div>
+            <select name='dst_lang'>
+                <option value='zh'>中文</option>
+            </select><br><br>
+            <textarea name='dst_text' rows='10' cols='50' disabled></textarea>
+        </div>
+    </div>
+    <br>
+    {% module xsrf_form_html() %}
+    <button id='translate' style='font-size:1.1rem'>翻译</button>
+    <script>
+        const translate = document.querySelector('#translate');
+        const token = document.querySelector('input[name="_xsrf"]');
+        const src_lang = document.querySelector('select[name="src_lang"]');
+        const dst_lang = document.querySelector('select[name="dst_lang"]');
+        const src_text = document.querySelector('textarea[name="src_text"]');
+        const dst_text = document.querySelector('textarea[name="dst_text"]');
+        const info = document.querySelector('#info');
+        
+        function show_result() {
+            if (this.status == 200) {
+                dst_text.value = this.responseText;
+            }
+            info.textContent = '翻译结束';
+        }
+        
+        translate.onclick = function() {
+            dst_text.value = '';
+            info.textContent = '翻译中';
+            var Req = new XMLHttpRequest();
+            var data = new FormData();
+            data.set('src_lang', src_lang.value);
+            data.set('dst_lang', dst_lang.value);
+            data.set('src_text', src_text.value);
+            Req.addEventListener('loadend', show_result);
+            Req.open('POST', '');
+            Req.setRequestHeader('X-XSRFToken', token.value);
+            Req.send(data);
+        }
+        
+    </script>
+{% end %}
