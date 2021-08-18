@@ -21,7 +21,7 @@ from pymongo import MongoClient
 import article_collect
 from rec_sys import get_recommend_result
 from utils import collection_dict, collection_language
-from aiModule import imageClassifier, Translation
+from aiModule import *
 
 UPDATE_DELAY = 60 * 5
 ADMIN_USERS = ['yangmin', 'yangmin2', 'yangmin3']
@@ -387,7 +387,7 @@ class TranslationHandler(BaseHandler):
         
     @staticmethod
     @lru_cache()
-    def translate(src_lang, dst_lang, src_text):    
+    def translate(src_lang, dst_lang, src_text):
         return Translation().run(src_text)
     
     @tornado.web.authenticated
@@ -403,16 +403,34 @@ class TranslationHandler(BaseHandler):
             dst_lang,
             src_text,
         )
-        print(self.translate.cache_info())
         
         self.finish(dst_text)
+     
+class TextGenerationHandler(BaseHandler):
+    @tornado.web.authenticated
+    def get(self):
+        self.render('textGeneration.html')
+        
+    @staticmethod
+    @lru_cache()
+    def text_generate(prompt):
+        return TextGeneration().run(prompt)
+
+    @tornado.web.authenticated
+    async def post(self):
+        output_texts = await tornado.ioloop.IOLoop.current().run_in_executor(
+            None,
+            self.text_generate,
+            self.request.body.decode()
+        )
+        self.finish({'list': output_texts})
             
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
         self.user_db.row_factory = sqlite3.Row
         self.mongo_client = MongoClient()
-        self.ai_model = None # imageClassifier()
+        self.ai_model = None
         self.last_update = 0
         self.table_define()
         handlers = [
@@ -433,6 +451,7 @@ class Application(tornado.web.Application):
             (r'/([a-z]+)/recommender', RecommenderHandler),
             (r'/ai/imageClassifier', ImageClsHandler),
             (r'/ai/translation', TranslationHandler),
+            (r'/ai/textGeneration', TextGenerationHandler),
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),

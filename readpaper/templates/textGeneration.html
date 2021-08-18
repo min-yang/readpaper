@@ -1,0 +1,67 @@
+{% extends 'ai_base.html' %}
+
+{% block body %}
+    <style>
+        .can_click {
+            background-color: #e9f5f4;
+            margin: 1rem;
+            width: auto;
+            cursor: pointer;
+        }
+        .can_click:hover {
+            background-color: #d8f2f0;
+        }
+    </style>
+    <p id='info' style='color:red'></p>
+    <p>你可以在下框中编辑上文，机器将自动生成下文。</p>
+    <textarea name='prompt' style='width:100%;height:300px;font-size:12pt'></textarea><br><br>
+    {% module xsrf_form_html() %}
+    <input type='submit' id='generate' value='生成'></input>
+    <br><br>
+    <div style='border:1px solid black'>
+    生成选项：
+    <ol>
+    <li><div class='can_click' id='gen_1' onclick='append_text(this)'></div></li>
+    <li><div class='can_click' id='gen_2' onclick='append_text(this)'></div></li>
+    <li><div class='can_click' id='gen_3' onclick='append_text(this)'></div></li>
+    <li><div class='can_click' id='gen_4' onclick='append_text(this)'></div></li>
+    </ol>
+    </div>
+    <script>
+        const generate = document.querySelector('#generate');
+        const prompt = document.querySelector('textarea[name="prompt"]');
+        const token = document.querySelector('input[name="_xsrf"]');
+        const info = document.querySelector('#info');
+        const gen_1 = document.querySelector('#gen_1');
+        const gen_2 = document.querySelector('#gen_2');
+        const gen_3 = document.querySelector('#gen_3');
+        const gen_4 = document.querySelector('#gen_4');
+        
+        function append_text(ele) {
+            console.log(ele.textContent);
+            prompt.value += ele.textContent;
+        }
+        
+        function show_result() {
+            if (this.status == 200) {
+                var ret = JSON.parse(this.responseText);
+                gen_1.textContent = ret['list'][0];
+                gen_2.textContent = ret['list'][1];
+                gen_3.textContent = ret['list'][2];
+                gen_4.textContent = ret['list'][3];
+                info.textContent = '生成结束';
+            } else {
+                info.textContent = '出现错误';
+            }
+        }
+        
+        generate.onclick = function() {
+            info.textContent = '生成中...';
+            var Req = new XMLHttpRequest();
+            Req.addEventListener('loadend', show_result);
+            Req.open('POST', '');
+            Req.setRequestHeader('X-XSRFToken', token.value);
+            Req.send(prompt.value);
+        }
+    </script>
+{% end %}

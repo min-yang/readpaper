@@ -1,6 +1,8 @@
 import json
 import os
 import sys
+import random
+import time
 
 import torch
 import torchvision.models as models
@@ -77,7 +79,53 @@ class Translation:
         outputs = self.model.generate(inputs)
         return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
         
+class TextGeneration:
+    def __init__(self):
+        self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-xlnet-base")
+        self.model = AutoModelWithLMHead.from_pretrained("hfl/chinese-xlnet-base")
+        
+    def run(self, prompt=''):
+        prompt = prompt[-200:]
+        encoded_prompt = self.tokenizer.encode(prompt, add_special_tokens=False, return_tensors="pt")
+        if encoded_prompt.size()[-1] == 0:
+            input_ids = None
+        else:
+            input_ids = encoded_prompt
+            
+        output_sequences = self.model.generate(
+            input_ids = input_ids,
+            max_length = 20 + len(encoded_prompt[0]),
+            top_k = 0,
+            top_p = 0.9,
+            repetition_penalty = 2.0,
+            do_sample = True,
+            num_return_sequences = 4,
+        )
+        
+        output_texts = []
+        for  output_sequence in output_sequences:
+            text = self.tokenizer.decode(output_sequence, clean_up_tokenization_spaces=True, skip_special_tokens=True)
+            idx_start = len(self.tokenizer.decode(encoded_prompt[0], clean_up_tokenization_spaces=True, skip_special_tokens=True))
+            output_texts.append(text[idx_start:])
+        
+        return output_texts
+        
+    def run_petition(self, run_time=60):
+        article = ''
+        prompt = '共同富裕是全体人民的富裕，是人民群众物质生活和精神生活都富裕，不是少数人的富裕，也不是整齐划一的平均主义，要分阶段促进共同富裕。要鼓励勤劳创新致富，坚持在发展中保障和改善民生，为人民提高受教育程度、增强发展能力创造更加普惠公平的条件，畅通向上流动通道，给更多人创造致富机会，形成人人参与的发展环境。'
+        
+        t0 = time.time()
+        while True:
+            if time.time() - t0 > run_time:
+                break
+            texts = self.run(prompt)
+            random.shuffle(texts)
+            prompt = prompt + texts[0]
+            article += texts[0]
+            
+        return article
+    
 if __name__ == '__main__':
-    img_cls = imageClassifier()
-    img_cls.run(sys.argv[1])
+    gen = TextGeneration()
+    gen.run_petition()
     
