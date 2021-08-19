@@ -4,11 +4,18 @@ import sys
 import random
 import time
 
+import opencc
 import torch
+import numpy as np
+import matplotlib.pyplot as plt
+import torchvision.transforms.functional as F
 import torchvision.models as models
 import torchvision.transforms as transforms
 from PIL import Image
-from transformers import AutoModelWithLMHead, AutoTokenizer
+from transformers import AutoModelWithLMHead, AutoTokenizer, AutoModelForSequenceClassification, pipeline
+from torchvision.utils import draw_bounding_boxes
+from torchvision.models.detection import fasterrcnn_resnet50_fpn
+from torchvision.transforms.functional import convert_image_dtype
 
 class imageClassifier:
     def __init__(self):
@@ -83,6 +90,8 @@ class TextGeneration:
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-xlnet-base")
         self.model = AutoModelWithLMHead.from_pretrained("hfl/chinese-xlnet-base")
+        self.s2t_converter = opencc.OpenCC('s2t.json')
+        self.t2s_converter = opencc.OpenCC('t2s.json')
         
     def run(self, prompt=''):
         prompt = prompt[-200:]
@@ -112,7 +121,7 @@ class TextGeneration:
         
     def run_petition(self, run_time=60):
         article = ''
-        prompt = '共同富裕是全体人民的富裕，是人民群众物质生活和精神生活都富裕，不是少数人的富裕，也不是整齐划一的平均主义，要分阶段促进共同富裕。要鼓励勤劳创新致富，坚持在发展中保障和改善民生，为人民提高受教育程度、增强发展能力创造更加普惠公平的条件，畅通向上流动通道，给更多人创造致富机会，形成人人参与的发展环境。'
+        prompt = ''
         
         t0 = time.time()
         while True:
@@ -122,10 +131,81 @@ class TextGeneration:
             random.shuffle(texts)
             prompt = prompt + texts[0]
             article += texts[0]
+            print(article)
             
         return article
+
+class ObjectDetection:
+    def __init__(self):
+        self.model = fasterrcnn_resnet50_fpn(pretrained=True, progress=False)
+        self.model = self.model.eval()
+        self.score_threshold = 0.8
+        self.COCO_INSTANCE_CATEGORY_NAMES = [
+            '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+            'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'N/A', 'stop sign',
+            'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+            'elephant', 'bear', 'zebra', 'giraffe', 'N/A', 'backpack', 'umbrella', 'N/A', 'N/A',
+            'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
+            'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
+            'bottle', 'N/A', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
+            'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
+            'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'N/A', 'dining table',
+            'N/A', 'N/A', 'toilet', 'N/A', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+            'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'N/A', 'book',
+            'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
+        ]
+        
+    @staticmethod
+    def show(imgs):
+        if not isinstance(imgs, list):
+            imgs = [imgs]
+        fix, axs = plt.subplots(ncols=len(imgs), squeeze=False)
+        for i, img in enumerate(imgs):
+            img = img.detach()
+            img = F.to_pil_image(img)
+            axs[0, i].imshow(np.asarray(img))
+            axs[0, i].set(xticklabels=[], yticklabels=[], xticks=[], yticks=[])
+    
+    def run(self, infile):
+        img = Image.open(infile).convert('RGB')
+        img = np.array(img)
+        img = np.moveaxis(img, -1, 0)
+        img = torch.tensor(img)
+        
+        batch_img = torch.stack([img])
+        batch = convert_image_dtype(batch_img, dtype=torch.float)
+        
+        outputs = self.model(batch)
+        
+        img_with_boxes = []
+        for img, output in zip(batch_img, outputs):
+            idx = output['scores'] > self.score_threshold
+            labels = []
+            for label_idx in output['labels'][idx]:
+                labels.append(self.COCO_INSTANCE_CATEGORY_NAMES[label_idx])
+                
+            img_with_boxes.append(
+                draw_bounding_boxes(img, boxes=output['boxes'][idx], labels=labels, width=4)
+            )
+        
+        output_img = img_with_boxes[0] #默认只有一张图片
+        output_img = np.array(output_img)
+        output_img = np.moveaxis(output_img, 0, -1)
+        return Image.fromarray(output_img)
+    
+class TextClassifier:
+    def __init__(self):
+        tokenizer = AutoTokenizer.from_pretrained("uer/roberta-base-finetuned-chinanews-chinese")
+        model = AutoModelForSequenceClassification.from_pretrained("uer/roberta-base-finetuned-chinanews-chinese")
+        self.classifier = pipeline('sentiment-analysis', model=model, tokenizer=tokenizer, return_all_scores=True)
+
+    def run(self, text):
+        return self.classifier(text[:1000])
     
 if __name__ == '__main__':
     gen = TextGeneration()
     gen.run_petition()
     
+#    objDetection = ObjectDetection()
+#    objDetection.run('test_image/kitten.jpg')
+

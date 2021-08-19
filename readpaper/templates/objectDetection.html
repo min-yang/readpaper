@@ -1,0 +1,14 @@
+{% extends 'ai_base.html' %}
+
+{% block body %}
+<form method='post' enctype="multipart/form-data">
+    请选择图片文件：<input type='file' name='image' accept='image/*'><br><br>
+    {% module xsrf_form_html() %}
+    <input type='submit' value='上传'>
+</form>
+<div style='text-align:center'>
+    {% if show_image %}
+        <img src='{{ static_url(current_user + '_bbox.jpg') }}' alt='图片' width='80%' height='auto'></img><br>
+    {% end %}
+</div>
+{% end %}

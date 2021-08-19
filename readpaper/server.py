@@ -7,8 +7,9 @@ import sqlite3
 import asyncio
 import logging
 import datetime
+import uuid
 from io import BytesIO
-from multiprocessing import Process
+from multiprocessing import Process, Manager, Queue
 from functools import lru_cache
 
 import bcrypt
@@ -25,6 +26,8 @@ from aiModule import *
 
 UPDATE_DELAY = 60 * 5
 ADMIN_USERS = ['yangmin', 'yangmin2', 'yangmin3']
+TASK_QUEUE = Queue()
+RESULT_DICT = Manager().dict()
 
 def check_contain_chinese(text):
     for char in text:
@@ -357,74 +360,99 @@ class CommentHandler(BaseHandler):
         data = json.loads(self.request.body)
         data['update_time'] = time.time()
         self.application.mongo_client.user.comment.insert_one(data)
-     
-class ImageClsHandler(BaseHandler):
+
+class AIHandler(BaseHandler):
+    async def get_ai_result(self, model_name, *args):
+        request_id = uuid.uuid4().hex
+        TASK_QUEUE.put((request_id, model_name, args))
+        while True:
+            result = RESULT_DICT.get(request_id)
+            if result:
+                RESULT_DICT.pop(request_id)
+                return result
+            else:
+                await asyncio.sleep(0.1)
+
+class ImageClsHandler(AIHandler):
     @tornado.web.authenticated
-    def get(self):
-        try:
-            os.remove('static/%s' %self.current_user)
-        except FileNotFoundError:
-            pass
-        self.render('imgClassifier.html', class_data=None)
+    async def get(self):
+        img_file = 'static/%s_image' %self.current_user
+        if os.path.exists(img_file):
+            class_data = await self.get_ai_result('imageClassifier', img_file)
+        else:
+            class_data = None
+
+        self.render('imgClassifier.html', class_data=class_data)
     
     @tornado.web.authenticated
     def post(self):
         img_byte = self.request.files.get('image', [{}])[0].get('body', None)
         if img_byte:
-            open('static/%s' %self.current_user, 'wb').write(img_byte)
-            img_file = BytesIO(img_byte)
+            open('static/%s_image' %self.current_user, 'wb').write(img_byte)
             
-            if not issubclass(type(self.application.ai_model), imageClassifier):
-                self.application.ai_model = imageClassifier()
-            
-            class_data = self.application.ai_model.run(img_file)
-            self.render('imgClassifier.html', class_data=class_data)   
-            
-class TranslationHandler(BaseHandler):
+        self.redirect('/ai/imageClassifier')
+                        
+class TranslationHandler(AIHandler):
     @tornado.web.authenticated
     def get(self):
         self.render('translation.html')
         
-    @staticmethod
-    @lru_cache()
-    def translate(src_lang, dst_lang, src_text):
-        return Translation().run(src_text)
-    
     @tornado.web.authenticated
     async def post(self):
         src_lang = self.get_argument('src_lang')
         dst_lang = self.get_argument('dst_lang')
         src_text = self.get_argument('src_text')
         
-        dst_text = await tornado.ioloop.IOLoop.current().run_in_executor(
-            None,
-            self.translate,
-            src_lang,
-            dst_lang,
-            src_text,
-        )
-        
+        dst_text = await self.get_ai_result('Translation', src_text)
         self.finish(dst_text)
      
-class TextGenerationHandler(BaseHandler):
+class TextGenerationHandler(AIHandler):
     @tornado.web.authenticated
     def get(self):
         self.render('textGeneration.html')
-        
-    @staticmethod
-    @lru_cache()
-    def text_generate(prompt):
-        return TextGeneration().run(prompt)
 
     @tornado.web.authenticated
     async def post(self):
-        output_texts = await tornado.ioloop.IOLoop.current().run_in_executor(
-            None,
-            self.text_generate,
-            self.request.body.decode()
-        )
+        prompt = self.request.body.decode()
+        output_texts = await self.get_ai_result('TextGeneration', prompt)
         self.finish({'list': output_texts})
+    
+class ObjectDetectionHandler(AIHandler):
+    def image_detect(self, img_file):
+        self.ai_model_load('objectDetection')
+        return self.application.ai_model.run(img_file)
+    
+    @tornado.web.authenticated
+    def get(self):
+        img_file = 'static/%s_bbox.jpg' %self.current_user
+        if os.path.exists(img_file):
+            show_image = True
+        else:
+            show_image = False
+
+        self.render('objectDetection.html', show_image=show_image)
+    
+    @tornado.web.authenticated
+    async def post(self):
+        img_byte = self.request.files.get('image', [{}])[0].get('body', None)
+        if img_byte:
+            img_file = BytesIO(img_byte)
+            output_img = await self.get_ai_result('ObjectDetection', img_file)
+            output_img.save('static/%s_bbox.jpg' %self.current_user)
             
+        self.redirect('/ai/objectDetection')
+    
+class TextClsHandler(AIHandler):
+    @tornado.web.authenticated
+    def get(self):
+        self.render('textClassifier.html')
+    
+    @tornado.web.authenticated
+    async def post(self):
+        text = self.request.body.decode()
+        class_scores = await self.get_ai_result('TextClassifier', text)
+        self.finish({'results': class_scores[0]})
+    
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
@@ -452,6 +480,8 @@ class Application(tornado.web.Application):
             (r'/ai/imageClassifier', ImageClsHandler),
             (r'/ai/translation', TranslationHandler),
             (r'/ai/textGeneration', TextGenerationHandler),
+            (r'/ai/objectDetection', ObjectDetectionHandler),
+            (r'/ai/textClassifier', TextClsHandler),
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
@@ -477,9 +507,27 @@ class Application(tornado.web.Application):
                     'create table if not exists user_recommend_%s (name text primary key not null unique, rec_items text)' %key
                 )
 
+def ai_process():
+    ai_model = None
+    while True:
+        request_id, model_name, args = TASK_QUEUE.get()
+        try:
+            model_class = eval(model_name)
+        except NameError:
+            continue
+        
+        if not issubclass(type(ai_model), model_class):
+            ai_model = model_class()
+        
+        ret = ai_model.run(*args)
+        RESULT_DICT[request_id] = ret
+    
 if __name__ == "__main__":
 #    p = Process(target=article_collect.run)
 #    p.start()
+
+    p2 = Process(target = ai_process)
+    p2.start()
     
     tornado.options.parse_command_line()
     app = Application()

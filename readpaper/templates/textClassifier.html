@@ -1,0 +1,35 @@
+{% extends 'ai_base.html' %}
+
+{% block body %}
+    <p>请输入待分类的文本（最多1000个字）：</p>
+    <textarea name='text' maxlength='1000' style='width:100%;height:300px;font-size:12pt'></textarea><br><br>
+    {% module xsrf_form_html() %}
+    <input type='submit' value='分类' name='classify'>
+    <p id='info' style='color:red'></p>
+    <script>
+        const do_it = document.querySelector('input[name="classify"]');
+        const info = document.querySelector('#info');
+        const token = document.querySelector('input[name="_xsrf"]');
+        const text = document.querySelector('textarea[name="text"]');
+        
+        function show_result() {
+            if (this.status == 200) {
+                var ret = JSON.parse(this.responseText);
+                console.log(ret);
+                info.textContent = '分类结束';
+            } else {
+                info.textContent = '出现错误';
+            }
+        }
+        
+        do_it.onclick = function() {
+            info.textContent = '分类中...';
+            var Req = new XMLHttpRequest();
+            Req.addEventListener('loadend', show_result);
+            Req.open('POST', '');
+            Req.setRequestHeader('X-XSRFToken', token.value);
+            Req.send(text.value);
+        }
+        
+    </script>
+{% end %}
