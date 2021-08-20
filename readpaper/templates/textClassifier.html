@@ -1,21 +1,65 @@
 {% extends 'ai_base.html' %}
 
 {% block body %}
+    <style>
+        .bar_outer {
+            display: grid;
+            grid-template-columns: 1fr 4fr;
+            margin-bottom: 10px;
+        }
+        .bar_show {
+            background-image: linear-gradient(to left, rgba(182,217,219,0.5), rgba(0,229,255,1));
+            width: 0%;
+            text-align: center;
+        }
+    </style>
     <p>请输入待分类的文本（最多1000个字）：</p>
-    <textarea name='text' maxlength='1000' style='width:100%;height:300px;font-size:12pt'></textarea><br><br>
+    <textarea name='text' maxlength='1000' style='width:100%;height:200px;font-size:12pt'></textarea><br><br>
     {% module xsrf_form_html() %}
     <input type='submit' value='分类' name='classify'>
     <p id='info' style='color:red'></p>
+    <div>
+        <div class='bar_outer'>
+        <div>大陆政治：</div><div class='bar_show' id='class_0'></div>
+        </div>
+        <div class='bar_outer'>
+        <div>港澳政治：</div><div class='bar_show' id='class_1'></div>
+        </div>
+        <div class='bar_outer'>
+        <div>国际新闻：</div><div class='bar_show' id='class_2'></div>
+        </div>
+        <div class='bar_outer'>
+        <div>财经新闻：</div><div class='bar_show' id='class_3'></div>
+        </div>
+        <div class='bar_outer'>
+        <div>文化：</div><div class='bar_show' id='class_4'></div>
+        </div>
+        <div class='bar_outer'>
+        <div>娱乐：</div><div class='bar_show' id='class_5'></div>
+        </div>
+        <div class='bar_outer'>
+        <div>体育：</div><div class='bar_show' id='class_6'></div>
+        </div>
+    <div>
     <script>
         const do_it = document.querySelector('input[name="classify"]');
         const info = document.querySelector('#info');
         const token = document.querySelector('input[name="_xsrf"]');
         const text = document.querySelector('textarea[name="text"]');
+         
+        let class_list = [];
+        for (let i = 0; i < 7; i++) {
+            class_list.push(document.querySelector('#class_' + i));
+        }
         
         function show_result() {
             if (this.status == 200) {
                 var ret = JSON.parse(this.responseText);
-                console.log(ret);
+                ret['results'].forEach((element, index) => {
+                    var score = Math.round(element['score'] * 100) + '%';
+                    class_list[index].style.width = score;
+                    class_list[index].textContent = score;
+                })
                 info.textContent = '分类结束';
             } else {
                 info.textContent = '出现错误';

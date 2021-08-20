@@ -78,13 +78,26 @@ class imageClassifier:
         
 class Translation:
     def __init__(self):
-        self.model = AutoModelWithLMHead.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
-        self.tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+        #self.model = AutoModelWithLMHead.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+        #self.tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-en-zh")
+        self.zh2en_model = AutoModelWithLMHead.from_pretrained("Helsinki-NLP/opus-mt-zh-en")
+        self.zh2en_tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-zh-en")
         
-    def run(self, text):
-        inputs = self.tokenizer.encode(text, return_tensors='pt')
-        outputs = self.model.generate(inputs)
-        return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+    def run(self, text, src_lang, dst_lang):
+        if src_lang == dst_lang:
+            return text
+        if src_lang == 'en' and dst_lang == 'zh':
+            model = self.model
+            tokenizer = self.tokenizer
+        elif src_lang == 'zh' and dst_lang == 'en':
+            model = self.zh2en_model
+            tokenizer = self.zh2en_tokenizer
+        else:
+            return text
+            
+        inputs = tokenizer.encode(text, return_tensors='pt')
+        outputs = model.generate(inputs)
+        return tokenizer.decode(outputs[0], skip_special_tokens=True)
         
 class TextGeneration:
     def __init__(self):

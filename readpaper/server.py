@@ -403,7 +403,7 @@ class TranslationHandler(AIHandler):
         dst_lang = self.get_argument('dst_lang')
         src_text = self.get_argument('src_text')
         
-        dst_text = await self.get_ai_result('Translation', src_text)
+        dst_text = await self.get_ai_result('Translation', src_text, src_lang, dst_lang)
         self.finish(dst_text)
      
 class TextGenerationHandler(AIHandler):
