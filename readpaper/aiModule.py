@@ -17,6 +17,8 @@ from torchvision.utils import draw_bounding_boxes
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.transforms.functional import convert_image_dtype
 
+from clm_train import myTokenizer
+
 class imageClassifier:
     def __init__(self):
         self.model = models.mobilenet_v2(pretrained=True)     # Trained on 1000 classes from ImageNet
@@ -101,14 +103,14 @@ class Translation:
         
 class TextGeneration:
     def __init__(self):
-        self.tokenizer = AutoTokenizer.from_pretrained("hfl/chinese-xlnet-base")
-        self.model = AutoModelWithLMHead.from_pretrained("hfl/chinese-xlnet-base")
+        self.tokenizer = myTokenizer('saved/gpt2-chinese/vocab.json')
+        self.model = AutoModelWithLMHead.from_pretrained("saved/gpt2-chinese")
         self.s2t_converter = opencc.OpenCC('s2t.json')
         self.t2s_converter = opencc.OpenCC('t2s.json')
         
     def run(self, prompt=''):
         prompt = prompt[-200:]
-        encoded_prompt = self.tokenizer.encode(prompt, add_special_tokens=False, return_tensors="pt")
+        encoded_prompt = torch.tensor([self.tokenizer.encode(prompt)['input_ids']])
         if encoded_prompt.size()[-1] == 0:
             input_ids = None
         else:
@@ -116,18 +118,15 @@ class TextGeneration:
             
         output_sequences = self.model.generate(
             input_ids = input_ids,
-            max_length = 20 + len(encoded_prompt[0]),
-            top_k = 0,
-            top_p = 0.9,
-            repetition_penalty = 2.0,
+            max_length = 50 + len(encoded_prompt[0]),
             do_sample = True,
             num_return_sequences = 4,
         )
         
         output_texts = []
         for  output_sequence in output_sequences:
-            text = self.tokenizer.decode(output_sequence, clean_up_tokenization_spaces=True, skip_special_tokens=True)
-            idx_start = len(self.tokenizer.decode(encoded_prompt[0], clean_up_tokenization_spaces=True, skip_special_tokens=True))
+            text = self.tokenizer.decode(output_sequence.tolist())
+            idx_start = len(self.tokenizer.decode(encoded_prompt[0].tolist()))
             output_texts.append(text[idx_start:])
         
         return output_texts

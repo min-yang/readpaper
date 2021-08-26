@@ -297,7 +297,7 @@ class PaperDeleteHandler(BaseHandler):
             raise tornado.web.HTTPError(403)
         collection = self.open_mongo(collection_dict[collection_key])
         collection.delete_one({'_id': paper_id})
-        self.redirect('/%s/paper/index' %collection_key)
+        self.redirect('/%s/index' %collection_key)
 
 class PaperYouRatingHandler(BaseHandler):
     @tornado.web.authenticated
@@ -457,7 +457,7 @@ class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
         self.user_db.row_factory = sqlite3.Row
-        self.mongo_client = MongoClient()
+        self.mongo_client = MongoClient(host='10.10.9.185', username='admin', password='admin')
         self.ai_model = None
         self.last_update = 0
         self.table_define()
