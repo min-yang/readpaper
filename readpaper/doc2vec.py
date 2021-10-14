@@ -62,7 +62,7 @@ def result_write(corpus, collection, key):
         collection.find_one_and_update({'_id': doc_id}, {'$set': {'similar_paper': similar_paper}})
 
 def main(key):
-    client = MongoClient()
+    client = MongoClient('10.10.9.185', username='admin', password='admin')
     collection = eval('client.' + collection_dict[key])
     language = collection_language[key]
     filter_dict = {}
@@ -71,7 +71,8 @@ def main(key):
     result_write(train_corpus, collection, key)
     
 if __name__ == '__main__':
-    for key in collection_dict:
-        main(key)
+    main('meiti')
+    #for key in collection_dict:
+    #    main(key)
     
     

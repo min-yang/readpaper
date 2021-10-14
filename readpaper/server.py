@@ -453,6 +453,41 @@ class TextClsHandler(AIHandler):
         class_scores = await self.get_ai_result('TextClassifier', text)
         self.finish({'results': class_scores[0]})
     
+class CloudFileHandler(BaseHandler):
+    target_dir = '/home/min/Modules/readpaper/readpaper/cloudFile'
+    
+    @tornado.web.authenticated
+    def get(self):
+        
+        os.makedirs(self.target_dir, exist_ok=True)
+        dst_file = self.get_argument('dst_file', None)
+        if dst_file:
+            fp = os.path.abspath(os.path.join(self.target_dir, dst_file))
+            if not fp.startswith(self.target_dir):
+                raise tornado.web.HTTPError(403)
+            elif not os.path.exists(fp):
+                raise tornado.web.HTTPError(404)
+            else:
+                self.set_header('content-disposition', 'attachment; filename="%s"' %dst_file)
+                self.finish(open(fp, 'rb').read())
+        else:
+            files = os.listdir(self.target_dir)
+            self.render('cloudFile.html', files=files)
+    
+    @tornado.web.authenticated
+    def post(self):
+        file = self.request.files.get('file', [None])[0]
+        if file:
+            fp = os.path.join(self.target_dir, file.get('filename'))
+            with open(fp, 'wb') as fw:
+                fw.write(file.get('body'))
+        
+        self.redirect('/cloudFile')
+    
+class ReactDevHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render('reactDev.html')
+    
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
@@ -482,6 +517,8 @@ class Application(tornado.web.Application):
             (r'/ai/textGeneration', TextGenerationHandler),
             (r'/ai/objectDetection', ObjectDetectionHandler),
             (r'/ai/textClassifier', TextClsHandler),
+            (r'/cloudFile', CloudFileHandler),
+            (r'/reactDev', ReactDevHandler),
         ]
         settings = dict(
             template_path=os.path.join(os.path.dirname(__file__), "templates"),

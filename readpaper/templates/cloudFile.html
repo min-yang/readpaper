@@ -1,0 +1,19 @@
+<html>
+<head>
+</head>
+<body>
+    <form method='post' enctype="multipart/form-data">
+        请选择需要上传到云端的文件：<input type='file' name='file'><br><br>
+        {% module xsrf_form_html() %}
+        <input type='submit' value='上传'>
+    </form>
+    云端文件列表如下：
+    <div style='border: 1px solid black;margin: 2%'>
+        <ul>
+        {% for file in files %}
+            <li><a href="?dst_file={{ file }}" download>{{ file }}</a></li>
+        {% end for %}
+        </ul>
+    </div>
+</body>
+</html>

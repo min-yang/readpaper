@@ -72,6 +72,11 @@ def get_article(dir_url, start_page, proposer, record_xpath, title_xpath, summar
             if client.article.crawl.find_one({'_id': url_hash}, projection={}):
                 continue
             
+            if client.article.not_crawl.find_one({'_id': url_hash}, projection={}):
+                 continue
+            else:
+                client.article.not_crawl.insert_one({'_id': url_hash, 'url': article_url})
+            
             try:
                 r = my_get(article_url)
             except Exception as e:

@@ -3,8 +3,10 @@
 import os
 import re
 import time
+import random
 from urllib.parse import urljoin
 
+import opencc
 import requests
 from parsel import Selector
 
@@ -19,6 +21,7 @@ class Gutenberg:
     def __init__(self):
         self.book_dir = 'books/gutenberg'
         os.makedirs(self.book_dir, exist_ok=True)
+        self.converter = opencc.OpenCC('t2s.json')
         
     def collect(self):
         """收集project gutenberg上面的中文书籍"""
@@ -48,16 +51,22 @@ class Gutenberg:
 
             print('下载结束，耗时：%d秒' %(time.time() - t0))
         
-    def preprocess():
+    def preprocess(self):
         files = os.listdir(self.book_dir)
+        random.shuffle(files)
         for file in files:
             doc = open(os.path.join(self.book_dir, file)).read()
-            text = re.sub(r'\W+', '', doc)
-            n_char = re.findall(r'[a-zA-Z]', text)
-            n_han = re.findall(r'[^a-zA-Z0-9]', text)
-            han_vs_char = len(n_han) / len(n_char)
-            print('中文字符占比：%d%%' %(han_vs_char * 100))
+            n_han = len(re.findall(r'[\u4e00-\u9fa5]', doc))
+            if n_han > 50000:
+                doc = ''.join(re.findall(r'([\u4e00-\u9fa5].*?)[a-zA-Z0-9]', doc, flags=re.DOTALL))
+                doc = self.converter.convert(doc)
+                doc = re.sub(r'\n{2,}', '<|eos|>', doc)
+                doc = re.sub(r'\s+', '', doc)
+                doc = doc.replace('<|eos|>', '\n')
+                print(repr(doc))
+                print(file)
+                input('continue?')
             
 if __name__ == '__main__':
-    Gutenberg().collect()
+    Gutenberg().preprocess()
 

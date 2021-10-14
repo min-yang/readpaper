@@ -20,3 +20,6 @@ readpaper/.ipynb_checkpoints/
 readpaper/test-clm/
 readpaper/test_image/
 readpaper/static/yangmin*
+readpaper/books/
+readpaper/cloudFile/
+readpaper/node_modules
