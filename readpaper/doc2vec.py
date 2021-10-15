@@ -6,7 +6,7 @@ import gensim
 import jieba
 from pymongo import MongoClient
 
-from utils import collection_dict, collection_language
+from utils import *
 
 logging.basicConfig(format='[%(levelname)1.1s %(asctime)s %(module)s:%(lineno)d] %(message)s', level=logging.INFO)
 
@@ -64,14 +64,15 @@ def result_write(corpus, collection, key):
 def main(key):
     client = MongoClient('10.10.9.185', username='admin', password='admin')
     collection = eval('client.' + collection_dict[key])
+    write_collection = eval('client.' + collection_write_dict[key])
     language = collection_language[key]
     filter_dict = {}
     train_corpus = Corpus(collection, filter_dict, language)
     train(train_corpus, key)
-    result_write(train_corpus, collection, key)
+    result_write(train_corpus, write_collection, key)
     
 if __name__ == '__main__':
-    main('meiti')
+    main('allWeb')
     #for key in collection_dict:
     #    main(key)
     

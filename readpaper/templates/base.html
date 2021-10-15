@@ -27,6 +27,7 @@
         <div class='topnav'>
             <a {% if request.path.startswith('/arxiv/') %}class='active'{% end %}href='/arxiv/index'>arxiv论文</a>
             <a {% if request.path.startswith('/meiti/') %}class='active'{% end %}href='/meiti/index'>媒体文章</a>
+            <a {% if request.path.startswith('/allWeb/') %}class='active'{% end %}href='/allWeb/index'>全网文章</a>
             <a {% if request.path.startswith('/ai/') %}class='active'{% end %}href='/ai/textGeneration'>人工智能</a>
             <a {% if request.path.startswith('/reactDev') %}class='active'{% end %}href='/reactDev'>React开发</a>
         </div>

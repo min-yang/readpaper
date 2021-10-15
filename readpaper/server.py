@@ -21,8 +21,8 @@ from pymongo import MongoClient
 
 import article_collect
 from rec_sys import get_recommend_result
-from utils import collection_dict, collection_language
-from aiModule import *
+from utils import collection_dict, collection_language, collection_write_dict
+#from aiModule import *
 
 UPDATE_DELAY = 60 * 5
 ADMIN_USERS = ['yangmin', 'yangmin2', 'yangmin3']
@@ -227,7 +227,7 @@ class RatingHandler(BaseHandler):
     @tornado.web.authenticated
     async def post(self, collection_key):
         data = json.loads(self.request.body)
-        collection = self.open_mongo(collection_dict[collection_key])
+        collection = self.open_mongo(collection_write_dict[collection_key])
         self.query('insert or replace into user_rate_%s values (?, ?, ?)' %collection_key, (
             data['user'], 
             data['item'], 
@@ -281,7 +281,7 @@ class PaperEditHandler(BaseHandler):
     def post(self, collection_key, paper_id):
         if not self.is_admin:
             raise tornado.web.HTTPError(403)
-        collection = self.open_mongo(collection_dict[collection_key])
+        collection = self.open_mongo(collection_write_dict[collection_key])
         title = self.get_argument('title')
         summary = self.get_argument('summary')
         
@@ -295,7 +295,7 @@ class PaperDeleteHandler(BaseHandler):
     def get(self, collection_key, paper_id):
         if not self.is_admin:
             raise tornado.web.HTTPError(403)
-        collection = self.open_mongo(collection_dict[collection_key])
+        collection = self.open_mongo(collection_write_dict[collection_key])
         collection.delete_one({'_id': paper_id})
         self.redirect('/%s/index' %collection_key)
 
@@ -487,7 +487,7 @@ class CloudFileHandler(BaseHandler):
 class ReactDevHandler(tornado.web.RequestHandler):
     def get(self):
         self.render('reactDev.html')
-    
+
 class Application(tornado.web.Application):
     def __init__(self):
         self.user_db = sqlite3.connect('user.db')
@@ -498,20 +498,20 @@ class Application(tornado.web.Application):
         self.table_define()
         handlers = [
             (r'/', HomeHandler),
-            (r"/([a-z]+)/index", PaperIndexHandler),
-            (r"/([a-z]+)/topic/([0-9]+)", TopicHandler),
-            (r"/([a-z]+)/paper/([0-9a-z.]+)", PaperHandler),
-            (r"/([a-z]+)/paper/([0-9a-z.]+)/edit", PaperEditHandler),
-            (r"/([a-z]+)/paper/([0-9a-z.]+)/delete", PaperDeleteHandler),
-            (r"/([a-z]+)/youRating", PaperYouRatingHandler),
-            (r"/([a-z]+)/random", PaperRandomHandler),
-            (r'/([a-z]+)/search', SearchHandler),
+            (r"/([a-zA-Z]+)/index", PaperIndexHandler),
+            (r"/([a-zA-Z]+)/topic/([0-9]+)", TopicHandler),
+            (r"/([a-zA-Z]+)/paper/([0-9a-z.]+)", PaperHandler),
+            (r"/([a-zA-Z]+)/paper/([0-9a-z.]+)/edit", PaperEditHandler),
+            (r"/([a-zA-Z]+)/paper/([0-9a-z.]+)/delete", PaperDeleteHandler),
+            (r"/([a-zA-Z]+)/youRating", PaperYouRatingHandler),
+            (r"/([a-zA-Z]+)/random", PaperRandomHandler),
+            (r'/([a-zA-Z]+)/search', SearchHandler),
             (r'/comment', CommentHandler),
             (r'/auth/login', LoginHandler),
             (r'/auth/create', UserCreateHandler),
             (r'/auth/logout', LogoutHandler),
-            (r'/([a-z]+)/rating', RatingHandler),
-            (r'/([a-z]+)/recommender', RecommenderHandler),
+            (r'/([a-zA-Z]+)/rating', RatingHandler),
+            (r'/([a-zA-Z]+)/recommender', RecommenderHandler),
             (r'/ai/imageClassifier', ImageClsHandler),
             (r'/ai/translation', TranslationHandler),
             (r'/ai/textGeneration', TextGenerationHandler),
