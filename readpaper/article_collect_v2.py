@@ -5,6 +5,7 @@ import hashlib
 import os
 import datetime
 from urllib.parse import urljoin, urlparse
+from multiprocessing import Process, Queue
 
 import requests
 import pymongo
@@ -16,6 +17,21 @@ from w3lib.url import canonicalize_url
 
 logging.basicConfig(format='[%(levelname)1.1s %(asctime)s %(module)s:%(lineno)d] %(message)s', level=logging.INFO)
 
+NEXT_URLS = Queue()
+LINKS = Queue()
+START_URL = 'https://www.zhihu.com/explore'
+DB_NAME = 'article'
+COL_NAME = 'crawl2'
+MONGO_HOST = '10.10.9.185'
+MONGO_USERNAME = 'admin'
+MONGO_PASSWORD = 'admin'
+
+def get_mongo_obj():
+    mongo_client = MongoClient(MONGO_HOST, username=MONGO_USERNAME, password=MONGO_PASSWORD)
+    db = eval('mongo_client.%s' %DB_NAME)
+    collection = eval('mongo_client.%s.%s' %(DB_NAME, COL_NAME))
+    return mongo_client, db, collection
+
 class CrawlArticle:
     def __init__(self):
         self.headers = {
@@ -24,7 +40,6 @@ class CrawlArticle:
         'Accept-Encoding': 'gzip, deflate',
         'Accept-Language': 'zh-CN,zh;q=0.9',
         }
-        self.start_url = 'https://www.zhihu.com/'
         self.DENY_EXTENSIONS = [
             # archives
             '7z', '7zip', 'bz2', 'rar', 'tar', 'tar.gz', 'xz', 'zip',
@@ -42,39 +57,31 @@ class CrawlArticle:
             'jpg', 'png',
         ]
         self.queue_max_size = 3000000
-        self.mongo_init()
 
     def mongo_init(self):
-        col_name = 'crawl2'
-        view_name = col_name + '_view'
-        self.mongo_client = MongoClient('10.10.9.185', username='admin', password='admin')
-        self.collection = eval('self.mongo_client.article.' + col_name)
-        
-        if view_name not in self.mongo_client.article.collection_names():
-            self.mongo_client.article.command({
+        view_name = COL_NAME + '_view'
+        self.mongo_client, self.db, self.collection = get_mongo_obj()
+        if view_name not in self.db.list_collection_names():
+            self.db.command({
                 'create': view_name,
-                'viewOn': col_name,
+                'viewOn': COL_NAME,
                 'pipeline': [
                     {'$match': {'n_char': {'$gt': 500}}}
                 ]
             })
 
-    def get_start_url(self):
-        count = self.collection.count_documents({})
-        if count == 0:
-            return self.start_url
-        else:
-            return self.collection.find_one(skip=random.randint(0, count-1))['links'][0]['href']
-        
     def link_allowed(self, link):
+        hostname = None
         try:
             parsed_url = urlparse(link)
-            if os.path.splitext(parsed_url.path)[1].lower()[1:] in self.DENY_EXTENSIONS:
-                return False
-            return True
+            hostname = parsed_url.hostname
+            if os.path.splitext(parsed_url.path)[1].lower()[1:] in self.DENY_EXTENSIONS \
+               or not hostname.endswith('zhihu.com'):
+                return False, hostname
+            return True, hostname
         except Exception as e:
             logging.error('[%s]URL处理出错: %s' %(link, e))
-            return False
+            return False, hostname
         
     @timeout_decorator.timeout(10)
     def download_and_parse(self, url):
@@ -102,7 +109,7 @@ class CrawlArticle:
         except pymongo.errors.DuplicateKeyError:
             pass
         
-        if len(self.next_urls) > self.queue_max_size:
+        if NEXT_URLS.qsize() > self.queue_max_size:
             logging.info('待爬队列大小超过%s，停止插入' %self.queue_max_size)
         else:
             links = set()
@@ -112,27 +119,71 @@ class CrawlArticle:
                 links.add(link)
             
             for link in links:
-                url_hash = hashlib.md5(link.encode('utf-8')).hexdigest()
-                if not self.collection.find_one({'_id': url_hash}, projection=['_id']) and self.link_allowed(link):
-                    self.next_urls.add(link)
+                allowed, hostname = self.link_allowed(link)
+                if allowed:
+                    LINKS.put(link)
         
     def run(self):
-        self.next_urls = set()
-        self.next_urls.add(self.start_url)
+        self.mongo_init()
         while True:
-            try:
-                url = self.next_urls.pop()
-            except KeyError:
-                logging.info('待爬队列为空，从库中随机选取起始地址')
-                url = self.get_start_url()
-            
+            url = NEXT_URLS.get()
+                
             t0 = time.time()
             try:
                 self.parse(url)
             except Exception as e:
                 logging.error('[%s]解析错误: %s' %(url, e))
-            logging.info('单条耗时: %.4f秒, 待爬队列数量: %s' %(time.time() - t0, len(self.next_urls)))
+            logging.info('单条耗时: %.4f秒' %(time.time() - t0))
+
+def links_to_queue():
+    mongo_client, db, collection = get_mongo_obj()
+    t0 = time.time()
+    dupefilter = set()
+    
+    while True:
+        if time.time() - t0 > 10:
+            logging.info('去重队列数量：%s' %len(dupefilter))
+            t0 = time.time()
+            
+        link = LINKS.get()
+        if link not in dupefilter:
+            dupefilter.add(link)
+            url_hash = hashlib.md5(link.encode('utf-8')).hexdigest()
+            if not collection.find_one({'_id': url_hash}):
+                NEXT_URLS.put(link)
+
+def get_start_url(collection):
+    count = collection.count_documents({})
+    if count == 0:
+        return START_URL
+    else:
+        return collection.find_one(skip=random.randint(0, count-1))['links'][0]['href']
+
+def manager():
+    mongo_client, db, collection = get_mongo_obj()
+    while True:
+        time.sleep(10)
+        n_urls = NEXT_URLS.qsize()
+        logging.info('待爬队列数量: %s' %n_urls)
+        if n_urls == 0:
+            NEXT_URLS.put(get_start_url(collection))
 
 if __name__ == '__main__':
-    CrawlArticle().run()
+    NEXT_URLS.put(START_URL)
+    ps = []
+    for i in range(1):
+        p = Process(target=CrawlArticle().run)
+        p.start()
+        ps.append(p)
     
+    link_p = Process(target=links_to_queue)
+    link_p.start()
+    ps.append(link_p)
+    
+    manager_p = Process(target=manager)
+    manager_p.start()
+    ps.append(manager_p)
+    
+    for p in ps:
+        p.join()
+        

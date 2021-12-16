@@ -24,7 +24,7 @@ from rec_sys import get_recommend_result
 from utils import collection_dict, collection_language, collection_write_dict
 #from aiModule import *
 
-UPDATE_DELAY = 60 * 5
+UPDATE_DELAY = 0
 ADMIN_USERS = ['yangmin', 'yangmin2', 'yangmin3']
 TASK_QUEUE = Queue()
 RESULT_DICT = Manager().dict()
@@ -69,7 +69,8 @@ class BaseHandler(tornado.web.RequestHandler):
             filter, 
             skip=num_skip, 
             limit=11, 
-            sort=[('updated', pymongo.DESCENDING)]
+            sort=[('updated', pymongo.DESCENDING)],
+            allow_disk_use=True,
         ):
             papers.append(self.post_process(doc))
             

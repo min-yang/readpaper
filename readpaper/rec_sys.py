@@ -22,7 +22,7 @@ def get_recommend_result(key):
     
     t0 = time.time()
     conn = sqlite3.connect('user.db')
-    client = MongoClient()
+    client = MongoClient('10.10.9.185', username='admin', password='admin')
     
     users = []
     for row in conn.execute('select name from users').fetchall():
