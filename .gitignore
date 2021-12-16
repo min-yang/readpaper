@@ -23,3 +23,7 @@ readpaper/static/yangmin*
 readpaper/books/
 readpaper/cloudFile/
 readpaper/node_modules
+
+/*.*
+static
+templates
